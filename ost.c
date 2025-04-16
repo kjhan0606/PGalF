@@ -62,7 +62,7 @@ enum boolean fof_open(particle p,FoFTStruct *tree, float fof_link){
     tmpz = p.z-tree->monoz;
     r = tree->dist;
     dist2 = tmpx*tmpx+tmpy*tmpy+tmpz*tmpz;
-    dist = sqrt(dist2);
+    dist = sqrtf(dist2);
     diffr = dist - r;
 	link02 = 0.5*(p.link02 + tree->maxlink02);
     if(diffr <= link02) return YES;
@@ -106,7 +106,7 @@ enum boolean treeopen(particle *p,TStruct *tree, float theta2){
 	qxx3 = xz*tmpx+yz*tmpy+zz*tmpz;   \
 	qxy = xx*tmpx*tmpx+yy*tmpy*tmpy+zz*tmpz*tmpz+   \
 		2.*(xy*tmpx*tmpy+xz*tmpx*tmpz+yz*tmpy*tmpz); \
-	dist = sqrt(dist2);\
+	dist = sqrtf(dist2);\
 	ntmp = dist/ran2nran;   \
 	tmpdist = (dist-ntmp*ran2nran);   \
 	fplmf1 = diff[ntmp][0] + slope[ntmp][0]*tmpdist;   \
@@ -132,7 +132,7 @@ enum boolean treeopen(particle *p,TStruct *tree, float theta2){
 	tmpy = pointer->y - p->y;  \
 	tmpz = pointer->z - p->z;  \
 	dist2 = tmpx*tmpx + tmpy*tmpy + tmpz*tmpz;  \
-	dist = sqrt(dist2);\
+	dist = sqrtf(dist2);\
 	ntmp = dist/ran2nran;  \
 	fplmf = diff[ntmp][0] + slope[ntmp][0] * (dist-ntmp*ran2nran);  \
 	fplmf *= ptlmass; \
@@ -164,7 +164,7 @@ enum boolean treeopen(particle *p,TStruct *tree, float theta2){
 	tmpxx = xx + yy + zz;   \
 	qxy = xx*tmpx*tmpx+yy*tmpy*tmpy+zz*tmpz*tmpz+   \
 		2.*(xy*tmpx*tmpy+xz*tmpx*tmpz+yz*tmpy*tmpz); \
-	dist = sqrt(dist2);\
+	dist = sqrtf(dist2);\
 	ntmp = dist/ran2nran;   \
 	ntmp = MIN(ntmp,NSPLINE-1);\
 	tmpdist = (dist-ntmp*ran2nran);   \
@@ -276,7 +276,7 @@ int new_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree,
                         POSTYPE tmpy = point.y - ((FoFTPtlStruct*)ptr)->y;
                         POSTYPE tmpz = point.z - ((FoFTPtlStruct*)ptr)->z;
                         POSTYPE dist2 = tmpx*tmpx + tmpy*tmpy + tmpz*tmpz;
-						POSTYPE dist = sqrt(dist2);
+						POSTYPE dist = sqrtf(dist2);
                         if(dist <= 0.5*(point.link02+((FoFTPtlStruct*)ptr)->link02))
 						{
                             linked[ncount].x = ((FoFTPtlStruct*)ptr)->x;
@@ -337,7 +337,7 @@ int destroy_new_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree,
                         POSTYPE tmpy = point.y - ((FoFTPtlStruct*)ptr)->y;
                         POSTYPE tmpz = point.z - ((FoFTPtlStruct*)ptr)->z;
                         POSTYPE dist2 = tmpx*tmpx + tmpy*tmpy + tmpz*tmpz;
-                        POSTYPE dist = sqrt(dist2);
+                        POSTYPE dist = sqrtf(dist2);
                         if(dist <= 0.5*(point.link02+((FoFTPtlStruct*)ptr)->link02))
                         {
                             linked[ncount].x = ((FoFTPtlStruct*)ptr)->x;

@@ -26,6 +26,7 @@
 int nullfct0();
 int nullfct1();
 
+float W4(float ,float );
 
 #ifndef _OPENMP
 #define Omp_get_thread_num() nullfct0()
@@ -224,13 +225,13 @@ void Make_Tree_Near(
 
 
 int near_open(particle *point, TStruct *tree, int npneigh, float maxdist , int Num_neighbor){
-	float tmpx,tmpy,tmpz,dist2, r2, dist, r, sortdist;
+	dptype tmpx,tmpy,tmpz,dist2, r2, dist, r;
 	if(npneigh >= Num_neighbor) {
 		tmpx = point->x - tree->monox;
 		tmpy = point->y - tree->monoy;
 		tmpz = point->z - tree->monoz;
 		r = tree->nodesize;
-		dist = sqrt(tmpx*tmpx+ tmpy*tmpy + tmpz*tmpz);
+		dist = sqrtf(tmpx*tmpx+ tmpy*tmpy + tmpz*tmpz);
 		if(dist-r > maxdist) return NO;
 		else return YES;
 	}
@@ -255,7 +256,7 @@ typedef struct nearestneighbor{
 	npneigh ++;\
 	npneigh=MIN(Num_neighbor,npneigh);\
 	maxdist2 = (neighbor[npneigh-1].dist2);\
-	maxdist = sqrt(maxdist2);\
+	maxdist = sqrtf(maxdist2);\
 }while(0)
 
 
@@ -306,6 +307,49 @@ int Find_Near(
 		MASS[i] = neighbor[i].mass;
 	}
 	return npneigh;
+}
+int nearConstOpen(particle *point, TStruct *tree, dptype constR){
+	dptype tmpx = point->x - tree->monox;
+	dptype tmpy = point->y - tree->monoy; 
+	dptype tmpz = point->z - tree->monoz;
+	dptype r = tree->nodesize;
+    dptype dist = sqrtf(tmpx*tmpx+ tmpy*tmpy + tmpz*tmpz); 
+	if(dist-r > constR) return NO; 
+	else return YES;
+}
+dptype getDenConstR (
+        particle *point,
+        TStruct *tree,
+        TPtlStruct *ptl,
+		dptype constR
+        ){
+	dptype tmpx,tmpy,tmpz,dist2,mass;
+    dptype den = 0;
+    void *ptr = (void*)tree;
+    while(ptr != NULL){
+        switch( ((TYPE*)ptr)->type) {
+            case TYPE_TREE:
+                switch( nearConstOpen(point, ptr, constR)){
+                    case YES:
+                        ptr = (void *)(((TStruct*)ptr)->daughter);
+                        break;
+                    default:
+                        ptr = (void *)(((TStruct*)ptr)->sibling);
+                }
+                break;
+            default:
+                tmpx = point->x - ((TPtlStruct *)ptr)->x;
+                tmpy = point->y - ((TPtlStruct *)ptr)->y;
+                tmpz = point->z - ((TPtlStruct *)ptr)->z;
+                dist2 = tmpx*tmpx + tmpy*tmpy + tmpz*tmpz;
+                mass = ((TPtlStruct *)ptr)->mass;
+                if(dist2<constR){
+                    den += W4(dist2,constR/2.) * mass;
+                }
+                ptr = (void *) (((TPtlStruct*)ptr)->sibling);
+        }
+    }
+    return den;
 }
 
 int Find_Near2(
@@ -452,7 +496,7 @@ void findsphdensity(SimpleBasicParticleType *bp,int np,int *nearindex, int Numne
         densph[i] = 0;
         for(j=0;j<res;j++){
             nearindex[k+j] = tmpindx[j];
-            dist2[j] = sqrt(dist2[j]);
+            dist2[j] = sqrtf(dist2[j]);
             densph[i] += W4(dist2[j],neardist/2.);
         }
     }
@@ -533,7 +577,7 @@ void starfindsphdensity(SimpleBasicParticleType *bp,int np,int *nearindex, int N
         res = Find_Near(p+i,NUMNEARDEN,TREE,ptl,&neardist,tmpindx,tmpd2, tmpmass);
         densph[i] = 0;
         for(j=0;j<res;j++){
-            tmpd2[j] = sqrt(tmpd2[j]);
+            tmpd2[j] = sqrtf(tmpd2[j]);
             densph[i] += W4(tmpd2[j],neardist/2.) * tmpmass[j];
         }
     }
@@ -623,6 +667,7 @@ void findStellarCore(
             ptl[nstar].z = bp[i].z;
             ptl[nstar].sibling = ptl+(nstar+1);
             ptl[nstar].mass = bp[i].mass;
+            ptl[nstar].indx = i;
             nstar++;
         }
     }
@@ -647,17 +692,26 @@ void findStellarCore(
         float tmpmass[NUMNEARDEN];
         float neardist;
         res = Find_Near(p+i,NUMNEARDEN,TREE,ptl,&neardist,tmpindx,tmpd2, tmpmass);
+#if defined mADV   || defined ADV
+		if(neardist < MIN_CONST_R_SMOOTHING){
+			dptype constR = MIN_CONST_R_SMOOTHING;
+			densph[i] = getDenConstR(p+i, TREE,ptl, constR);
+		}
+		else {
+       		densph[i] = 0;
+	        for(j=0;j<res;j++){ 
+				tmpd2[j] = sqrtf(tmpd2[j]); 
+				densph[i] += W4(tmpd2[j],neardist/2.) * tmpmass[j];
+			}
+		}
+#else
         densph[i] = 0;
         for(j=0;j<res;j++){
-            tmpd2[j] = sqrt(tmpd2[j]);
+            tmpd2[j] = sqrtf(tmpd2[j]);
             densph[i] += W4(tmpd2[j],neardist/2.) * tmpmass[j];
         }
+#endif
     }
-	/*
-	for(i=0;i<40;i++){
-		DEBUGPRINT("p%d has den %g\n", i, densph[i]);
-	}
-	*/
 
 
 
@@ -696,7 +750,7 @@ void findStellarCore(
     }
 
 //	Free(h);
-    Free(TREE);Free(ptl);
+    Free(TREE);
     DEBUGPRINT0("end of stellarneighbor()\n");
 	int istar = 0;
 	numcore  = 0;
@@ -705,7 +759,7 @@ void findStellarCore(
 			k = istar*numSNeigh;
 			int iflag = 0;
 			for(j=0;j<numSNeigh;j++){
-				if(densph[i] < densph[p[nearindex[k+j]].indx]) {
+				if(densph[i] < densph[ptl[nearindex[k+j]].indx]) {
 					iflag = 1;
 					break;
 				}
@@ -727,7 +781,7 @@ void findStellarCore(
 		}
 		if(bp[i].type == TYPE_STAR) istar ++;
 	}
-	Free(p);
+	Free(ptl); Free(p);
 	DEBUGPRINT("The number of cores : %d and before MergingPeak\n", numcore);
 
 	int MergingPeak(SimpleBasicParticleType *, int, Coretype *, int, int);

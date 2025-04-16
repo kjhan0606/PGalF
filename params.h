@@ -16,3 +16,4 @@
 
 #define NUMSTELLARNEIGHBORS 30 // This is for the core detection which help 
 							//	to find density peaks only using star particles.
+#define MIN_CONST_R_SMOOTHING 0.005 // minimum smoothing length for stellar density in cMpc/h
