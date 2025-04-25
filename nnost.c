@@ -321,8 +321,10 @@ dptype getDenConstR (
         particle *point,
         TStruct *tree,
         TPtlStruct *ptl,
-		dptype constR
+		dptype constR,
+		int *count
         ){
+	int icount = 0;
 	dptype tmpx,tmpy,tmpz,dist2,mass;
     dptype den = 0;
     void *ptr = (void*)tree;
@@ -345,10 +347,12 @@ dptype getDenConstR (
                 mass = ((TPtlStruct *)ptr)->mass;
                 if(dist2<constR){
                     den += W4(dist2,constR/2.) * mass;
+					icount ++;
                 }
                 ptr = (void *) (((TPtlStruct*)ptr)->sibling);
         }
     }
+	*count = icount;
     return den;
 }
 
@@ -686,18 +690,16 @@ void findStellarCore(
 //  all to star
 #pragma omp parallel for private(i,j) schedule(guided)
     for(i=0;i<np;i++){
-        int res;
+        int res, icount;
         int tmpindx[NUMNEARDEN];
         dptype tmpd2[NUMNEARDEN];
         float tmpmass[NUMNEARDEN];
         float neardist;
-        res = Find_Near(p+i,NUMNEARDEN,TREE,ptl,&neardist,tmpindx,tmpd2, tmpmass);
 #if defined mADV   || defined ADV
-		if(neardist < MIN_CONST_R_SMOOTHING){
-			dptype constR = MIN_CONST_R_SMOOTHING;
-			densph[i] = getDenConstR(p+i, TREE,ptl, constR);
-		}
-		else {
+		dptype constR = MIN_CONST_R_SMOOTHING;
+		densph[i] = getDenConstR(p+i, TREE,ptl, constR, &icount);
+		if(icount < NUMNEARDEN){
+	        res = Find_Near(p+i,NUMNEARDEN,TREE,ptl,&neardist,tmpindx,tmpd2, tmpmass);
        		densph[i] = 0;
 	        for(j=0;j<res;j++){ 
 				tmpd2[j] = sqrtf(tmpd2[j]); 
@@ -705,6 +707,7 @@ void findStellarCore(
 			}
 		}
 #else
+        res = Find_Near(p+i,NUMNEARDEN,TREE,ptl,&neardist,tmpindx,tmpd2, tmpmass);
         densph[i] = 0;
         for(j=0;j<res;j++){
             tmpd2[j] = sqrtf(tmpd2[j]);
