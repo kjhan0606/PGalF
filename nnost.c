@@ -918,8 +918,8 @@ void lagFindStellarCore(
 
 	{
 		int nbuff = 10;
-		double cellsize = MIN_CONST_R_SMOOTHING;
-		float RG;
+		double cellsize = TSC_CELL_SIZE;
+		float RG = Gaussian_Smoothing_Length;
 		int nx,ny,nz;
 		double xmin,ymin,zmin,xmax,ymax,zmax;
 		xmin = ymin = zmin = 1e20;
@@ -949,20 +949,20 @@ void lagFindStellarCore(
 			assign_density_TSC(bp, np, denGrid, nx,ny,nz,xmin,ymin,zmin,cellsize);
 
 			FILE *wp = fopen("denmap.out","w");
-			fwrite(&nx, sizeof(int), 1, wp);
+			fwrite(&mx, sizeof(int), 1, wp);
 			fwrite(&ny, sizeof(int), 1, wp);
 			fwrite(&nz, sizeof(int), 1, wp);
-			fwrite(denGrid, sizeof(float), nx*ny*nz,wp);
+			fwrite(denGrid, sizeof(float), mx*ny*nz,wp);
 			fclose(wp);
 		}
 		{
 			void gaussian_Smoothing(float *,int ,int ,int , double , float );
 			gaussian_Smoothing(denGrid,nx,ny,nz, cellsize, RG);
 			FILE *wp = fopen("gS.denmap.out","w");
-			fwrite(&nx, sizeof(int), 1, wp);
+			fwrite(&mx, sizeof(int), 1, wp);
 			fwrite(&ny, sizeof(int), 1, wp);
 			fwrite(&nz, sizeof(int), 1, wp);
-			fwrite(denGrid, sizeof(float), nx*ny*nz,wp);
+			fwrite(denGrid, sizeof(float), mx*ny*nz,wp);
 			fclose(wp);
 		}
 		{

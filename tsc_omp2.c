@@ -63,6 +63,7 @@ void findDen(SimpleBasicParticleType *bp,int np, float *densph, double xmin, dou
 		densph[i] = den;
 
 	}
+	DEBUGPRINT0("Now exit the density-interpolation Job\n");
 }
 
 
@@ -72,7 +73,7 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 		double Ymin,
 		double Zmin,
 		double cellwidth){
-	int nid,myid;
+	int nid,myid=0;
 	int NZWIDTH=4;
 	double pmas0,p05;
 //	long long i,j,k;
@@ -401,7 +402,7 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 	
 		}
 	}
-	if(myid==0) printf("Now exit the main tsc\n");
+	DEBUGPRINT0("Now exit the main tsc\n");
 
 
 	Free(target);
