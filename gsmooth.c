@@ -49,14 +49,14 @@ void gaussian_Smoothing(float *denGrid,int nx,int ny,int nz,
 	for(k=0;k<nz;k++){
 		long k1=k;
 		if(k > nzh) k1 = k-nz;
-		double zfact = exp(k1*k1*expfac/(nz*nz));
+		double zfact = exp(k1*k1*expfac/(double)(nz*nz));
 		for(j=0;j<ny;j++){
 			long j1 = j;
 			if(j > nyh) j1 = j-ny;
-			double yfact = exp(j1*j1*expfac/(ny*ny));
+			double yfact = exp(j1*j1*expfac/(double)(ny*ny));
 			for(i=0;i<=nx/2;i++){
 				long i2 = i*2;
-				double xfact = exp(i*i*expfac/(nx*nx));
+				double xfact = exp(i*i*expfac/(double)(nx*nx));
 				double factor = xfact*yfact*zfact;
 				a[i2+mx*(j+ny*k)] *= factor;
 				a[i2+1+mx*(j+ny*k)] *= factor;

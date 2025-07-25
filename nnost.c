@@ -882,6 +882,8 @@ void lagFindStellarCore(
     particle *p;
 
 
+
+
     p = (particle *) Malloc(sizeof(particle)*np,PPTR(p));
     for(i=0;i<np;i++){
         p[i].x = bp[i].x;
@@ -935,6 +937,8 @@ void lagFindStellarCore(
 		xmax = xmax + (xmax-xmin)*0.0001; // making a buffer to avoid the numerical exception
 		ymax = ymax + (ymax-ymin)*0.0001;
 		zmax = zmax + (zmax-zmin)*0.0001;
+		if((xmax-xmin)/cellsize<100 || (ymax-ymin)/cellsize < 100 ||
+				(zmax-zmin)/cellsize < 100 ) nbuff = 30;
 		nx = (xmax-xmin)/cellsize + nbuff; // buffer for the periodic boundary condition
 		ny = (ymax-ymin)/cellsize + nbuff;
 		nz = (zmax-zmin)/cellsize + nbuff;
@@ -947,6 +951,8 @@ void lagFindStellarCore(
 			void assign_density_TSC(SimpleBasicParticleType *, int, float *, int, int, int,
 				double, double, double, double);
 			assign_density_TSC(bp, np, denGrid, nx,ny,nz,xmin,ymin,zmin,cellsize);
+		}
+		if(0){
 
 			FILE *wp = fopen("denmap.out","w");
 			fwrite(&mx, sizeof(int), 1, wp);
@@ -958,6 +964,8 @@ void lagFindStellarCore(
 		{
 			void gaussian_Smoothing(float *,int ,int ,int , double , float );
 			gaussian_Smoothing(denGrid,nx,ny,nz, cellsize, RG);
+		}
+		if(0){
 			FILE *wp = fopen("gS.denmap.out","w");
 			fwrite(&mx, sizeof(int), 1, wp);
 			fwrite(&ny, sizeof(int), 1, wp);

@@ -9,6 +9,7 @@
 #include "ramses.h"
 #include "tree.h"
 #include "Memory.h"
+#include "params.h"
 
 #define icopysign(a) copysignf(1.,a)
 
@@ -87,6 +88,8 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 	long long *nxperiodic,*nyperiodic,*nzperiodic;
 	long long *nxp,*nyp,*nzp;
 
+	double volfact = (0.001/TSC_CELL_SIZE)*(0.001/TSC_CELL_SIZE)*(0.001/TSC_CELL_SIZE);
+
 //	rngc = (double) nx *(double)ny *(double)nz;
 
 //	if(myid==0) printf("Now in the OMP tsc: %d %d %d %g\n", local_nz,nstart_z,np, pmas);
@@ -153,6 +156,7 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 		long long i;
 #pragma omp parallel for num_threads(mthreads)
 		for(i=0;i<np;i++){
+			if(bp[i].type != TYPE_STAR) continue;
 #ifdef XYZDBL
 			double xp;
 #else
@@ -196,6 +200,7 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 		int idthread = omp_get_thread_num() + 1;
 		long long i;
 		for(i=0;i<np;i++){
+			if(bp[i].type != TYPE_STAR) continue;
 			if(target[i] != -idthread) continue;
 #ifdef XYZDBL
 			double xp,yp,zp;
@@ -402,7 +407,15 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 	
 		}
 	}
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+	for(long i=0;i<ngrid;i++) den[i] *= volfact; // return to density in cubic kpc
+
 	DEBUGPRINT0("Now exit the main tsc\n");
+
+
+
 
 
 	Free(target);
