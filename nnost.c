@@ -715,6 +715,296 @@ void findStellarCore(
         }
 #endif
     }
+    DEBUGPRINT0("End of getDenConstR()\n");
+
+
+
+
+	// now find the k-nearest neighbors.
+	mp = 0;
+    for(i=0;i<np;i++){
+		if(bp[i].type == TYPE_STAR){
+			p[mp].x = bp[i].x;
+			p[mp].y = bp[i].y;
+			p[mp].z = bp[i].z;
+			p[mp].indx = i;
+			mp++;
+		}
+    }
+	int numSNeigh = MIN(nstar, NUMSTELLARNEIGHBORS);
+	int *nearindex = *Nearindex = (int*)Malloc(sizeof(int)*numSNeigh*nstar,PPTR(*Nearindex));
+//  star to star
+#pragma omp parallel for private(i,j,k) schedule(guided)
+    for(i=0;i<nstar;i++){
+        int res;
+        int tmpindx[NUMSTELLARNEIGHBORS];
+        float neardist;
+		dptype dist2[NUMSTELLARNEIGHBORS];
+		float mass[NUMSTELLARNEIGHBORS];
+        k = i*numSNeigh;
+        res = Find_Near(p+i,numSNeigh,TREE,ptl,&neardist,tmpindx,
+				dist2, mass);
+        if(res != numSNeigh){
+            DEBUGPRINT("error occurred %d %d : %d\n", res, numSNeigh, np);
+            exit(99);
+        }
+        for(j=0;j<res;j++){
+            nearindex[k+j] = tmpindx[j];
+        }
+    }
+
+//	Free(h);
+    Free(TREE);
+    DEBUGPRINT0("end of stellarneighbor()\n");
+	int istar = 0;
+	numcore  = 0;
+	for(i=0;i<np;i++){
+		if(bp[i].type == TYPE_STAR && densph[i]>PEAKTHRESHOLD){
+			k = istar*numSNeigh;
+			int iflag = 0;
+			for(j=0;j<numSNeigh;j++){
+				if(densph[i] < densph[ptl[nearindex[k+j]].indx]) {
+					iflag = 1;
+					break;
+				}
+			}
+			if(iflag ==0){
+				int ibp = p[istar].indx;
+				core[numcore].peak = ibp;
+				core[numcore].cx = bp[ibp].x;
+				core[numcore].cy = bp[ibp].y;
+				core[numcore].cz = bp[ibp].z;
+				core[numcore].density = densph[i];
+				numcore ++;
+				if(numcore > maxnumcore-10){
+					maxnumcore += MAXNUMCORE;
+					*Core = Realloc(*Core, sizeof(Coretype)*maxnumcore);
+					core = *Core;
+				}
+			}
+		}
+		if(bp[i].type == TYPE_STAR) istar ++;
+	}
+	Free(ptl); Free(p);
+	DEBUGPRINT("The number of cores : %d and before MergingPeak\n", numcore);
+
+	int MergingPeak(SimpleBasicParticleType *, int, Coretype *, int, int);
+	if(numcore >10) numcore = MergingPeak(bp,np, core, numcore,0);
+	core = *Core = Realloc(*Core, sizeof(Coretype)*numcore);
+
+	DEBUGPRINT("The number of cores : %d and after MergingPeak\n", numcore);
+
+	nearindex = *Nearindex = Realloc(*Nearindex, sizeof(int)*np*Numnear);
+    p = (particle *) Malloc(sizeof(particle)*np,PPTR(p));
+#pragma omp parallel for 
+    for(i=0;i<np;i++){
+        p[i].x = bp[i].x;
+        p[i].y = bp[i].y;
+        p[i].z = bp[i].z;
+    }
+    ptl = (TPtlStruct *)Malloc(sizeof(TPtlStruct)*np,PPTR(ptl));
+#pragma omp parallel for 
+    for(i=0;i<np;i++){ 
+		ptl[i].type = TYPE_PTL; 
+		ptl[i].x = bp[i].x; 
+		ptl[i].y = bp[i].y; 
+		ptl[i].z = bp[i].z; 
+		ptl[i].sibling = ptl+(i+1); 
+		ptl[i].mass = bp[i].mass; 
+    }
+    ptl[np-1].sibling = NULL;
+	nnode = MAX(np/2,65*10000);
+    TREE = (TStruct *) Malloc(sizeof(TStruct)*nnode,PPTR(TREE));
+
+	if(nnode > 65*10000) recursiveflag = PTHREAD;
+	else recursiveflag = RECURSIVE;
+//  all to all
+	recursiveflag = RECURSIVE;
+    Make_Tree_Near(TREE,nnode, ptl,np,recursiveflag);
+    DEBUGPRINT("after All_Make_Tree_near for np = %d\n",np);
+#pragma omp parallel for private(i,j,k) schedule(guided)
+    for(i=0;i<np;i++){
+//		DEBUGPRINT("p%d  is now being processed: %d\n", i, recursiveflag);
+        int res;
+        int tmpindx[NUMNEIGHBOR];
+        float mass[NUMNEIGHBOR];
+        dptype dist2[NUMNEIGHBOR];
+        float neardist;
+        k = i*Numnear;
+        res = Find_Near(p+i,Numnear,TREE,ptl,&neardist,tmpindx,
+				dist2, mass);
+        if(res != Numnear){
+            DEBUGPRINT("error occurred %d %d : %d\n", res, Numnear, np);
+            exit(99);
+        }
+        for(j=0;j<res;j++){
+            nearindex[k+j] = tmpindx[j];
+        }
+    }
+
+	Free(TREE);
+	Free(ptl);
+	Free(p);
+
+
+	*NumCore = numcore;
+
+	return;
+}
+
+void lagFindStellarCore(
+		SimpleBasicParticleType *bp,int np,
+		int Numnear,
+        float *densph,
+		Coretype **Core,
+		int *NumCore,  // return value for number of core
+		int maxnumcore,
+		int **Nearindex){
+	Coretype *core = *Core;
+	int numcore;
+//    float *h;
+    double std,mean;
+    int ntmp;
+    float tmpx,tmpy,tmpz;
+    float fplmf,ptlmass;
+    size_t i,j,k;
+    int N,M;
+    TPtlStruct *ptl;
+    TStruct *TREE;
+    float theta = 1.;
+    float wtime;
+    long iseed=-9;
+    float x0,y0,z0,pscale;
+    float Rmin,Rmax,size;
+    int index;
+    int mp;
+	int nstar;
+    particle *p;
+
+
+    p = (particle *) Malloc(sizeof(particle)*np,PPTR(p));
+    for(i=0;i<np;i++){
+        p[i].x = bp[i].x;
+        p[i].y = bp[i].y;
+        p[i].z = bp[i].z;
+    }
+
+    ptl = (TPtlStruct *)Malloc(sizeof(TPtlStruct)*np,PPTR(ptl));
+    nstar = 0;
+    for(i=0;i<np;i++){
+        if(bp[i].type == TYPE_STAR){
+            ptl[nstar].type = TYPE_PTL;
+            ptl[nstar].x = bp[i].x;
+            ptl[nstar].y = bp[i].y;
+            ptl[nstar].z = bp[i].z;
+            ptl[nstar].sibling = ptl+(nstar+1);
+            ptl[nstar].mass = bp[i].mass;
+            ptl[nstar].indx = i;
+            nstar++;
+        }
+    }
+    ptl[nstar-1].sibling = NULL;
+	size_t nnode = MAX(nstar/2,65*10000);
+    DEBUGPRINT("nstar = %d, nnode= %d\n",nstar, nnode);
+    TREE = (TStruct *) Malloc(sizeof(TStruct)*nnode,PPTR(TREE));
+
+
+	int recursiveflag;
+	if(nnode > 65*10000) recursiveflag = PTHREAD;
+	else recursiveflag = RECURSIVE;
+	recursiveflag = RECURSIVE;
+
+    Make_Tree_Near(TREE,nnode, ptl,nstar,recursiveflag);
+
+	{
+		int nbuff = 10;
+		double cellsize = MIN_CONST_R_SMOOTHING;
+		float RG;
+		int nx,ny,nz;
+		double xmin,ymin,zmin,xmax,ymax,zmax;
+		xmin = ymin = zmin = 1e20;
+		xmax = ymax = zmax = -1e20;
+		for(i=0;i<np;i++){
+			xmin = MIN(xmin, bp[i].x);
+			ymin = MIN(ymin, bp[i].y);
+			zmin = MIN(zmin, bp[i].z);
+			xmax = MAX(xmax, bp[i].x);
+			ymax = MAX(ymax, bp[i].y);
+			zmax = MAX(zmax, bp[i].z);
+		}
+		xmax = xmax + (xmax-xmin)*0.0001; // making a buffer to avoid the numerical exception
+		ymax = ymax + (ymax-ymin)*0.0001;
+		zmax = zmax + (zmax-zmin)*0.0001;
+		nx = (xmax-xmin)/cellsize + nbuff; // buffer for the periodic boundary condition
+		ny = (ymax-ymin)/cellsize + nbuff;
+		nz = (zmax-zmin)/cellsize + nbuff;
+		xmin -= cellsize*nbuff/2.; ymin -= cellsize*nbuff/2.; zmin -= cellsize*nbuff/2.;
+
+		int mx = 2*(nx/2+1);
+		long ncells = mx*ny*nz;
+		float *denGrid = (float*)Malloc(sizeof(float)*ncells,PPTR(denGrid));
+		{	
+			void assign_density_TSC(SimpleBasicParticleType *, int, float *, int, int, int,
+				double, double, double, double);
+			assign_density_TSC(bp, np, denGrid, nx,ny,nz,xmin,ymin,zmin,cellsize);
+
+			FILE *wp = fopen("denmap.out","w");
+			fwrite(&nx, sizeof(int), 1, wp);
+			fwrite(&ny, sizeof(int), 1, wp);
+			fwrite(&nz, sizeof(int), 1, wp);
+			fwrite(denGrid, sizeof(float), nx*ny*nz,wp);
+			fclose(wp);
+		}
+		{
+			void gaussian_Smoothing(float *,int ,int ,int , double , float );
+			gaussian_Smoothing(denGrid,nx,ny,nz, cellsize, RG);
+			FILE *wp = fopen("gS.denmap.out","w");
+			fwrite(&nx, sizeof(int), 1, wp);
+			fwrite(&ny, sizeof(int), 1, wp);
+			fwrite(&nz, sizeof(int), 1, wp);
+			fwrite(denGrid, sizeof(float), nx*ny*nz,wp);
+			fclose(wp);
+		}
+		{
+			void findDen(SimpleBasicParticleType *, int, float *, double, double, double);
+			findDen(bp,np, densph, xmin,ymin,zmin);
+		}
+
+
+		Free(denGrid);
+	}
+	/*
+    DEBUGPRINT("after Star_Make_Tree_near for nstar = %d\n",nstar);
+//  all to star
+#pragma omp parallel for private(i,j) schedule(guided)
+    for(i=0;i<np;i++){
+        int res, icount;
+        int tmpindx[NUMNEARDEN];
+        dptype tmpd2[NUMNEARDEN];
+        float tmpmass[NUMNEARDEN];
+        float neardist;
+#if defined mADV   || defined ADV
+		dptype constR = MIN_CONST_R_SMOOTHING;
+		densph[i] = getDenConstR(p+i, TREE,ptl, constR, &icount);
+		if(icount < NUMNEARDEN){
+	        res = Find_Near(p+i,NUMNEARDEN,TREE,ptl,&neardist,tmpindx,tmpd2, tmpmass);
+       		densph[i] = 0;
+	        for(j=0;j<res;j++){ 
+				tmpd2[j] = sqrtf(tmpd2[j]); 
+				densph[i] += W4(tmpd2[j],neardist/2.) * tmpmass[j];
+			}
+		}
+#else
+        res = Find_Near(p+i,NUMNEARDEN,TREE,ptl,&neardist,tmpindx,tmpd2, tmpmass);
+        densph[i] = 0;
+        for(j=0;j<res;j++){
+            tmpd2[j] = sqrtf(tmpd2[j]);
+            densph[i] += W4(tmpd2[j],neardist/2.) * tmpmass[j];
+        }
+#endif
+    }
+    DEBUGPRINT0("End of getDenConstR()\n");
+	*/
 
 
 

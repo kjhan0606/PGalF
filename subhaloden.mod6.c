@@ -2638,10 +2638,16 @@ int subhalo_den(FoFTPtlStruct *rbp, lint np,lint *p2halo){
 			density = (float*)Malloc(sizeof(float)*np,PPTR(density));
 			core = (Coretype*)Malloc(sizeof(Coretype)*maxnumcore,PPTR(core));
 #ifdef ADV
+			void lagFindStellarCore(SimpleBasicParticleType *, int, int, float *, 
+					Coretype **, int *, int, int **);
+			lagFindStellarCore(bp,np,NumNeighbor,density, &core, &numcore, maxnumcore,
+					&neighbor);
+			/*
 			void findStellarCore(SimpleBasicParticleType *, int, int, float *, 
 					Coretype **, int *, int, int **);
 			findStellarCore(bp,np,NumNeighbor,density, &core, &numcore, maxnumcore,
 					&neighbor);
+					*/
 #else
 			neighbor = (int*)Malloc(sizeof(int)*np*NumNeighbor,PPTR(neighbor));
 			void starfindsphdensity(SimpleBasicParticleType *,int ,int *, int , float *);

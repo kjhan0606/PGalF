@@ -5,7 +5,7 @@
 #--- Objects to build 
 OBJS		= gfind.o Memory2.o force_spline.mod3.o ost.o \
 				subhaloden.mod6.o nrutil.o b2l.o spline.mod2.o \
-				nnost.o  utils.o mkRtidal.o tsc_omp2.o gsmooth.o
+				nnost.o  utils.o mkRtidal.o tsc_omp2.o
 
 PROGS =  gfind.exe
 all: 
@@ -20,20 +20,18 @@ $(PROGS): $(OBJS)
 
 AR = ar  rcv
 RANLIB = ranlib
-FFTW = /home/kjhan/local/
-OPT = -g  -qopenmp -DINDEX -DVarPM   -DXYZDBL -DNENER=0 -DNPRE=8 -DREAD_SINK -DNCHEM=9 \
-		-DNDUST=4  -DDEBUG -DADV 
+OPT = -g  -qopenmp -DINDEX -DVarPM   -DXYZDBL -DNENER=0 -DNPRE=8 -DREAD_SINK -DNCHEM=9 -DNDUST=4  -DDEBUG -DADV
 
-INCLUDES = -I$(FFTW)/include
 FC = mpifort
 CC = mpicc
 
-DFLAGS = -DNMEG=400000L #-D_LARGE_FILES #-DCHECK_INFORM
+DFLAGS = -DNMEG=400000L -D_LARGE_FILES #-DCHECK_INFORM
 FFLAGS = $(FDFLAGS) $(OPT)  -mcmodel=medium
-CFLAGS = $(DFLAGS)  $(OPT) $(INCLUDES)  #-DDEBUG
+CFLAGS = $(DFLAGS)  $(OPT)  #-DDEBUG
+LDFLAGS = $(OPT) -mcmodel=medium
 
 
-LIBS = -L$(FFTW)/lib -lsrfftw -lsfftw -lm
+LIBS = -lm
 
 #--- Suffix-based compilation rules
 .SUFFIXES: .exe .o .c .f .F
@@ -52,15 +50,15 @@ LIBS = -L$(FFTW)/lib -lsrfftw -lsfftw -lm
 	$(FC) $(FFLAGS) $(INCLUDES) -c $<
 
 .c.exe :
-	$(CC) $(OPT) $(INCLUDES) -o $*.exe $(OBJS) $(MPI_LINKS) $(LIBS)
+	$(CC) $(LDFLAGS) $(INCLUDES) -o $*.exe $(OBJS) $(MPI_LINKS) $(LIBS)
 
 .f.exe :
-	$(FC) $(OPT) $(INCLUDES) -o $*.exe $(OBJS) $(MPI_LINKS) $(LIBS)
+	$(FC) $(LDFLAGS) $(INCLUDES) -o $*.exe $(OBJS) $(MPI_LINKS) $(LIBS) $(INCLUDES)
 
 .for.exe :
-	$(FC) $(OPT) $(INCLUDES) -o $*.exe $(OBJS) $(MPI_LINKS) $(LIBS)
+	$(FC) $(LDFLAGS) $(INCLUDES) -o $*.exe $(OBJS) $(MPI_LINKS) $(LIBS) $(INCLUDES)
 
 .F.exe :
-	$(FC) $(OPT) $(INCLUDES) -o $*.exe $(OBJS) $(MPI_LINKS) $(LIBS)
+	$(FC) $(LDFLAGS) $(INCLUDES) -o $*.exe $(OBJS) $(MPI_LINKS) $(LIBS) $(INCLUDES)
 
 #--- Targets
