@@ -147,7 +147,13 @@ typedef struct SimpleBasicParticleType{
 	dptype vx,vy,vz;
 	dptype link02;
 	idtype indx;
+	struct SimpleBasicParticleType *bp;
 } SimpleBasicParticleType;
+
+typedef struct LinkedListGrid{
+	SimpleBasicParticleType *bp;
+	int np;
+} LinkedListGrid;
 
 typedef struct ompFoFParticleType{
 	dptype x,y,z, link02;

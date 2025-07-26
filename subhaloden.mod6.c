@@ -2635,6 +2635,7 @@ int subhalo_den(FoFTPtlStruct *rbp, lint np,lint *p2halo){
 			numcore = finddenpeak(density,NumNeighbor,neighbor,np,&core,0,bp);
 		}
 		else {
+			neighbor = (int*)Malloc(sizeof(int)*np*NumNeighbor,PPTR(neighbor));
 			density = (float*)Malloc(sizeof(float)*np,PPTR(density));
 			core = (Coretype*)Malloc(sizeof(Coretype)*maxnumcore,PPTR(core));
 #ifdef ADV

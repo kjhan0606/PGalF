@@ -29,12 +29,12 @@
 
 
 void findDen(SimpleBasicParticleType *bp,int np, float *densph, double xmin, double ymin, 
-		double zmin){
+		double zmin, double cellsize){
 	long i,j,k;
 	for(i=0;i<np;i++){
-		double xp = bp[i].x - xmin;
-		double yp = bp[i].y - ymin;
-		double zp = bp[i].z - zmin;
+		double xp = (bp[i].x - xmin)/cellsize;
+		double yp = (bp[i].y - ymin)/cellsize;
+		double zp = (bp[i].z - zmin)/cellsize;
 		int ix = rint(xp);
 		int iy = rint(yp);
 		int iz = rint(zp);
@@ -73,7 +73,7 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 		double Xmin,
 		double Ymin,
 		double Zmin,
-		double cellwidth){
+		double cellsize){
 	int nid,myid=0;
 	int NZWIDTH=4;
 	double pmas0,p05;
@@ -163,13 +163,13 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 			double xp;
 #endif
 			if(nxyz == nx) {
-				xp = (bp[i].x-Xmin)/cellwidth;
+				xp = (bp[i].x-Xmin)/cellsize;
 			}
 			else if(nxyz == ny) {
-				xp = (bp[i].y-Ymin)/cellwidth;
+				xp = (bp[i].y-Ymin)/cellsize;
 			}
 			else {
-				xp = (bp[i].z-Zmin)/cellwidth;
+				xp = (bp[i].z-Zmin)/cellsize;
 			}
 
 			int j = (int)(xp/Xwidth) + 1;
@@ -217,9 +217,9 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 			float xd1,yd1,zd1;
 			pmas0= bp[i].mass;
 			p05 = pmas0 * 0.5;
-			xp = (bp[i].x-Xmin)/cellwidth;
-			yp = (bp[i].y-Ymin)/cellwidth;
-			zp = (bp[i].z-Zmin)/cellwidth;
+			xp = (bp[i].x-Xmin)/cellsize;
+			yp = (bp[i].y-Ymin)/cellsize;
+			zp = (bp[i].z-Zmin)/cellsize;
 			nearx = RINT(xp);
 			neary = RINT(yp);
 			nearz = RINT(zp);
@@ -329,9 +329,9 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 			float xd1,yd1,zd1;
 			pmas0= bp[i].mass;
 			p05 = pmas0 * 0.5;
-			xp = (bp[i].x-Xmin)/cellwidth;
-			yp = (bp[i].y-Ymin)/cellwidth;
-			zp = (bp[i].z-Zmin)/cellwidth;
+			xp = (bp[i].x-Xmin)/cellsize;
+			yp = (bp[i].y-Ymin)/cellsize;
+			zp = (bp[i].z-Zmin)/cellsize;
 			nearx = RINT(xp);
 			neary = RINT(yp);
 			nearz = RINT(zp);

@@ -788,6 +788,9 @@ void findStellarCore(
 	Free(ptl); Free(p);
 	DEBUGPRINT("The number of cores : %d and before MergingPeak\n", numcore);
 
+
+
+
 	int MergingPeak(SimpleBasicParticleType *, int, Coretype *, int, int);
 	if(numcore >10) numcore = MergingPeak(bp,np, core, numcore,0);
 	core = *Core = Realloc(*Core, sizeof(Coretype)*numcore);
@@ -859,7 +862,8 @@ void lagFindStellarCore(
 		Coretype **Core,
 		int *NumCore,  // return value for number of core
 		int maxnumcore,
-		int **Nearindex){
+		int **Nearindex // index array for neighbor network
+		){
 	Coretype *core = *Core;
 	int numcore;
 //    float *h;
@@ -884,46 +888,21 @@ void lagFindStellarCore(
 
 
 
-    p = (particle *) Malloc(sizeof(particle)*np,PPTR(p));
-    for(i=0;i<np;i++){
-        p[i].x = bp[i].x;
-        p[i].y = bp[i].y;
-        p[i].z = bp[i].z;
-    }
 
-    ptl = (TPtlStruct *)Malloc(sizeof(TPtlStruct)*np,PPTR(ptl));
-    nstar = 0;
-    for(i=0;i<np;i++){
-        if(bp[i].type == TYPE_STAR){
-            ptl[nstar].type = TYPE_PTL;
-            ptl[nstar].x = bp[i].x;
-            ptl[nstar].y = bp[i].y;
-            ptl[nstar].z = bp[i].z;
-            ptl[nstar].sibling = ptl+(nstar+1);
-            ptl[nstar].mass = bp[i].mass;
-            ptl[nstar].indx = i;
-            nstar++;
-        }
-    }
-    ptl[nstar-1].sibling = NULL;
-	size_t nnode = MAX(nstar/2,65*10000);
-    DEBUGPRINT("nstar = %d, nnode= %d\n",nstar, nnode);
-    TREE = (TStruct *) Malloc(sizeof(TStruct)*nnode,PPTR(TREE));
+	int *nearindex;
+	size_t nnode;
+	int recursiveflag; 
 
 
-	int recursiveflag;
-	if(nnode > 65*10000) recursiveflag = PTHREAD;
-	else recursiveflag = RECURSIVE;
-	recursiveflag = RECURSIVE;
-
-    Make_Tree_Near(TREE,nnode, ptl,nstar,recursiveflag);
-
-	{
+	if(1){
+		float RG = Gaussian_Smoothing_Length;
 		int nbuff = 10;
 		double cellsize = TSC_CELL_SIZE;
-		float RG = Gaussian_Smoothing_Length;
 		int nx,ny,nz;
 		double xmin,ymin,zmin,xmax,ymax,zmax;
+		float *denGrid;
+		LinkedListGrid *linkedListGrid;
+
 		xmin = ymin = zmin = 1e20;
 		xmax = ymax = zmax = -1e20;
 		for(i=0;i<np;i++){
@@ -946,7 +925,7 @@ void lagFindStellarCore(
 
 		int mx = 2*(nx/2+1);
 		long ncells = mx*ny*nz;
-		float *denGrid = (float*)Malloc(sizeof(float)*ncells,PPTR(denGrid));
+		denGrid = (float*)Malloc(sizeof(float)*ncells,PPTR(denGrid));
 		{	
 			void assign_density_TSC(SimpleBasicParticleType *, int, float *, int, int, int,
 				double, double, double, double);
@@ -965,7 +944,7 @@ void lagFindStellarCore(
 			void gaussian_Smoothing(float *,int ,int ,int , double , float );
 			gaussian_Smoothing(denGrid,nx,ny,nz, cellsize, RG);
 		}
-		if(0){
+		if(1){
 			FILE *wp = fopen("gS.denmap.out","w");
 			fwrite(&mx, sizeof(int), 1, wp);
 			fwrite(&ny, sizeof(int), 1, wp);
@@ -974,120 +953,153 @@ void lagFindStellarCore(
 			fclose(wp);
 		}
 		{
-			void findDen(SimpleBasicParticleType *, int, float *, double, double, double);
-			findDen(bp,np, densph, xmin,ymin,zmin);
+			void findDen(SimpleBasicParticleType *, int, float *, double, double, double,
+					double);
+			findDen(bp,np, densph, xmin,ymin,zmin, cellsize);
 		}
 
 
+		linkedListGrid = (LinkedListGrid*)Malloc(sizeof(LinkedListGrid)
+				*ncells, PPTR(linkedListGrid));
+		for(i=0;i<ncells;i++) {
+			linkedListGrid[i].bp = NULL;
+			linkedListGrid[i].np = 0;
+		}
+		for(i=0;i<np;i++){
+			if(bp[i].type == TYPE_STAR){
+				long ir = (bp[i].x-xmin)/cellsize;
+				long jr = (bp[i].y-ymin)/cellsize;
+				long kr = (bp[i].z-zmin)/cellsize;
+				long ioff = ir+mx*(jr+ny*kr);
+				SimpleBasicParticleType *tmp = linkedListGrid[ioff].bp;
+				linkedListGrid[ioff].bp = bp+i;
+				linkedListGrid[ioff].np ++;
+				bp[i].bp = tmp;
+			}
+		}
+		DEBUGPRINT0("After building LinkedList\n");
+		numcore = 0;
+		int nthreads;
+#ifdef _OPENMP
+#pragma omp parallel shared(nthreads)
+#endif
+		{
+#ifdef _OPENMP
+#pragma omp master
+#endif
+			{
+				nthreads = omp_get_num_threads();
+			}
+		}
+		int num_cores[nthreads];
+		for(i=0;i<nthreads;i++) num_cores[i] = 0;
+#ifdef _OPENMP
+#pragma omp parallel for private(i,j,k)
+#endif
+		for(k=nbuff/2;k<nz-nbuff/2;k++){
+			int thread_id = omp_get_thread_num();
+			for(j=nbuff/2;j<ny-nbuff/2;j++){
+				for(i=nbuff/2;i<nx-nbuff/2;i++){
+					long ioff = i + mx*(long)(j+ny*k);
+					if(denGrid[ioff] > PEAKTHRESHOLD){
+						int peakflag=1;
+						int i1,j1,k1;
+						for(k1=-1;k1<2;k1++) for(j1=-1;j1<2;j1++) for(i1=-1;i1<2;i1++){
+							long joff = ioff+i1 + mx*(long)(j1 + ny*k1);
+							if(joff != ioff && denGrid[ioff]<=denGrid[joff]){
+								peakflag = 0;
+								break;
+							}
+						}
+						if(peakflag == 1){
+							/*
+							SimpleBasicParticleType *tmp = linkedListGrid[ioff].bp;
+							float maxden = -1.e20;
+							int ibp;
+							while(tmp){
+								ibp = tmp-bp;
+								if(densph[ibp] > maxden){
+									maxden = densph[ibp];
+									tmp = tmp->bp;
+								}
+							}
+							core[numcore].peak = ibp; 
+							core[numcore].cx = bp[ibp].x; 
+							core[numcore].cy = bp[ibp].y; 
+							core[numcore].cz = bp[ibp].z; 
+							core[numcore].density = maxden;
+							numcore ++;
+							*/
+							num_cores[thread_id] ++; 
+						}
+					}
+				}
+			}
+		}
+		numcore = 0;
+		for(i=0;i<nthreads;i++) numcore += num_cores[i];
+		DEBUGPRINT("The number of cores: %d in initial finding\n", numcore);
+
+		int ioff_cores[nthreads];
+		ioff_cores[0] =0;
+		for(i=1;i<nthreads;i++) ioff_cores[i] = ioff_cores[i-1] + num_cores[i-1];
+		numcore =0;
+#ifdef _OPENMP
+#pragma omp parallel for private(i,j,k) firstprivate(numcore)
+#endif
+        for(k=nbuff/2;k<nz-nbuff/2;k++){
+            int thread_id = omp_get_thread_num();
+            for(j=nbuff/2;j<ny-nbuff/2;j++){
+                for(i=nbuff/2;i<nx-nbuff/2;i++){
+                    long ioff = i + mx*(long)(j+ny*k);
+                    if(denGrid[ioff] > PEAKTHRESHOLD){
+                        int peakflag=1;
+                        int i1,j1,k1;
+                        for(k1=-1;k1<2;k1++) for(j1=-1;j1<2;j1++) for(i1=-1;i1<2;i1++){
+                            long joff = ioff+i1 + mx*(long)(j1 + ny*k1);
+                            if(joff != ioff && denGrid[ioff]<=denGrid[joff]){
+                                peakflag = 0;
+                                break;
+                            }
+                        }
+                        if(peakflag == 1){
+                            SimpleBasicParticleType *tmp = linkedListGrid[ioff].bp;
+                            float maxden = -1.e20;
+                            int ibp;
+                            while(tmp){
+                                ibp = tmp-bp;
+                                if(densph[ibp] > maxden){
+                                    maxden = densph[ibp];
+                                }
+                                tmp = tmp->bp;
+                            }
+                            core[ioff_cores[thread_id]+numcore].peak = ibp; 
+                            core[ioff_cores[thread_id]+numcore].cx = bp[ibp].x; 
+                            core[ioff_cores[thread_id]+numcore].cy = bp[ibp].y; 
+                            core[ioff_cores[thread_id]+numcore].cz = bp[ibp].z; 
+                            core[ioff_cores[thread_id]+numcore].density = maxden;
+                            numcore ++;
+                        }
+                    }
+                }
+            }
+        }
+		numcore = 0;
+		for(i=0;i<nthreads;i++) numcore += num_cores[i];
+		DEBUGPRINT("The number of cores: %d before MergingPeak\n", numcore);
+
+		Free(linkedListGrid);
 		Free(denGrid);
 	}
-	/*
-    DEBUGPRINT("after Star_Make_Tree_near for nstar = %d\n",nstar);
-//  all to star
-#pragma omp parallel for private(i,j) schedule(guided)
-    for(i=0;i<np;i++){
-        int res, icount;
-        int tmpindx[NUMNEARDEN];
-        dptype tmpd2[NUMNEARDEN];
-        float tmpmass[NUMNEARDEN];
-        float neardist;
-#if defined mADV   || defined ADV
-		dptype constR = MIN_CONST_R_SMOOTHING;
-		densph[i] = getDenConstR(p+i, TREE,ptl, constR, &icount);
-		if(icount < NUMNEARDEN){
-	        res = Find_Near(p+i,NUMNEARDEN,TREE,ptl,&neardist,tmpindx,tmpd2, tmpmass);
-       		densph[i] = 0;
-	        for(j=0;j<res;j++){ 
-				tmpd2[j] = sqrtf(tmpd2[j]); 
-				densph[i] += W4(tmpd2[j],neardist/2.) * tmpmass[j];
-			}
-		}
-#else
-        res = Find_Near(p+i,NUMNEARDEN,TREE,ptl,&neardist,tmpindx,tmpd2, tmpmass);
-        densph[i] = 0;
-        for(j=0;j<res;j++){
-            tmpd2[j] = sqrtf(tmpd2[j]);
-            densph[i] += W4(tmpd2[j],neardist/2.) * tmpmass[j];
-        }
-#endif
-    }
-    DEBUGPRINT0("End of getDenConstR()\n");
-	*/
 
 
-
-
-	// now find the k-nearest neighbors.
-	mp = 0;
-    for(i=0;i<np;i++){
-		if(bp[i].type == TYPE_STAR){
-			p[mp].x = bp[i].x;
-			p[mp].y = bp[i].y;
-			p[mp].z = bp[i].z;
-			p[mp].indx = i;
-			mp++;
-		}
-    }
-	int numSNeigh = MIN(nstar, NUMSTELLARNEIGHBORS);
-	int *nearindex = *Nearindex = (int*)Malloc(sizeof(int)*numSNeigh*nstar,PPTR(*Nearindex));
-//  star to star
-#pragma omp parallel for private(i,j,k) schedule(guided)
-    for(i=0;i<nstar;i++){
-        int res;
-        int tmpindx[NUMSTELLARNEIGHBORS];
-        float neardist;
-		dptype dist2[NUMSTELLARNEIGHBORS];
-		float mass[NUMSTELLARNEIGHBORS];
-        k = i*numSNeigh;
-        res = Find_Near(p+i,numSNeigh,TREE,ptl,&neardist,tmpindx,
-				dist2, mass);
-        if(res != numSNeigh){
-            DEBUGPRINT("error occurred %d %d : %d\n", res, numSNeigh, np);
-            exit(99);
-        }
-        for(j=0;j<res;j++){
-            nearindex[k+j] = tmpindx[j];
-        }
-    }
-
-//	Free(h);
-    Free(TREE);
-    DEBUGPRINT0("end of stellarneighbor()\n");
-	int istar = 0;
-	numcore  = 0;
-	for(i=0;i<np;i++){
-		if(bp[i].type == TYPE_STAR && densph[i]>PEAKTHRESHOLD){
-			k = istar*numSNeigh;
-			int iflag = 0;
-			for(j=0;j<numSNeigh;j++){
-				if(densph[i] < densph[ptl[nearindex[k+j]].indx]) {
-					iflag = 1;
-					break;
-				}
-			}
-			if(iflag ==0){
-				int ibp = p[istar].indx;
-				core[numcore].peak = ibp;
-				core[numcore].cx = bp[ibp].x;
-				core[numcore].cy = bp[ibp].y;
-				core[numcore].cz = bp[ibp].z;
-				core[numcore].density = densph[i];
-				numcore ++;
-				if(numcore > maxnumcore-10){
-					maxnumcore += MAXNUMCORE;
-					*Core = Realloc(*Core, sizeof(Coretype)*maxnumcore);
-					core = *Core;
-				}
-			}
-		}
-		if(bp[i].type == TYPE_STAR) istar ++;
-	}
-	Free(ptl); Free(p);
-	DEBUGPRINT("The number of cores : %d and before MergingPeak\n", numcore);
 
 	int MergingPeak(SimpleBasicParticleType *, int, Coretype *, int, int);
 	if(numcore >10) numcore = MergingPeak(bp,np, core, numcore,0);
 	core = *Core = Realloc(*Core, sizeof(Coretype)*numcore);
+
+
+
 
 	DEBUGPRINT("The number of cores : %d and after MergingPeak\n", numcore);
 
