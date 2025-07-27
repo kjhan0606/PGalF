@@ -1039,9 +1039,7 @@ int SmartFinding(SimpleBasicParticleType *bp,int np,Coretype *core,int numcore,
 			core[num++] = core[i];
 		}
 	}
-#ifdef DEBUG
-	printf("Total number of survived cores is %d from %d\n",num,numcore);
-#endif
+	DEBUGPRINT("Total number of survived cores is %d from %d\n",num,numcore);
 	numcore = num;
 	return numcore;
 }
@@ -1336,9 +1334,7 @@ recycling:
 		}
 	}
 	Free(Tcontactlist);
-#ifdef DEBUG
-	printf("Now Found the core densities for %d cores\n",numcore);
-#endif
+	DEBUGPRINT("Now Found the core densities for %d cores\n",numcore);
 	if(iflag ==0){
 		/* Deleting peaks of core particles less than minimum number */
 		iflag = 1;

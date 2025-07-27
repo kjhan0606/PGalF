@@ -1049,6 +1049,7 @@ void lagFindStellarCore(
 #endif
         for(k=nbuff/2;k<nz-nbuff/2;k++){
             int thread_id = omp_get_thread_num();
+			int joff = ioff_cores[thread_id];
             for(j=nbuff/2;j<ny-nbuff/2;j++){
                 for(i=nbuff/2;i<nx-nbuff/2;i++){
                     long ioff = i + mx*(long)(j+ny*k);
@@ -1066,18 +1067,20 @@ void lagFindStellarCore(
                             SimpleBasicParticleType *tmp = linkedListGrid[ioff].bp;
                             float maxden = -1.e20;
                             int ibp;
+							long jbp;
                             while(tmp){
                                 ibp = tmp-bp;
                                 if(densph[ibp] > maxden){
                                     maxden = densph[ibp];
+									jbp = ibp;
                                 }
                                 tmp = tmp->bp;
                             }
-                            core[ioff_cores[thread_id]+numcore].peak = ibp; 
-                            core[ioff_cores[thread_id]+numcore].cx = bp[ibp].x; 
-                            core[ioff_cores[thread_id]+numcore].cy = bp[ibp].y; 
-                            core[ioff_cores[thread_id]+numcore].cz = bp[ibp].z; 
-                            core[ioff_cores[thread_id]+numcore].density = maxden;
+                            core[joff+numcore].peak = jbp; 
+                            core[joff+numcore].cx = bp[ibp].x; 
+                            core[joff+numcore].cy = bp[ibp].y; 
+                            core[joff+numcore].cz = bp[ibp].z; 
+                            core[joff+numcore].density = maxden;
                             numcore ++;
                         }
                     }
