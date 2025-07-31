@@ -29,39 +29,90 @@
 
 
 void findDen(SimpleBasicParticleType *bp,int np, float *densph, double xmin, double ymin, 
-		double zmin, double cellsize){
+		double zmin, double cellsize,
+		float *den,
+		int nx, int ny, int nz
+		){
+	long mx = 2*(nx/2+1);
 	long i,j,k;
 	for(i=0;i<np;i++){
 		double xp = (bp[i].x - xmin)/cellsize;
 		double yp = (bp[i].y - ymin)/cellsize;
 		double zp = (bp[i].z - zmin)/cellsize;
-		int ix = rint(xp);
-		int iy = rint(yp);
-		int iz = rint(zp);
-		int jx = xp;
-		int jy = yp;
-		int jz = zp;
-		int kx = ( (ix-jx)>0 ? (ix+1):(ix-1));
-		int ky = ( (iy-jy)>0 ? (iy+1):(iy-1));
-		int kz = ( (iz-jz)>0 ? (iz+1):(iz-1));
-		double dx1 = fabs(xp-ix);
-		double dy1 = fabs(yp-iy);
-		double dz1 = fabs(zp-iz);
-		double dx2 = fabs(xp-jx);
-		double dy2 = fabs(yp-jy);
-		double dz2 = fabs(zp-jz);
-		double dx3 = fabs(xp-kx);
-		double dy3 = fabs(yp-ky);
-		double dz3 = fabs(zp-kz);
-		double den = 0;
-		den += (0.75-dx1*dx1)*(0.75-dy1*dy1)*(0.75-dz1*dz1);
-		den += 0.5*(1.5-dx2)*(1.5-dx2);
-		den += 0.5*(1.5-dy2)*(1.5-dy2);
-		den += 0.5*(1.5-dz2)*(1.5-dz2);
-		den += 0.5*(1.5-dx3)*(1.5-dx3);
-		den += 0.5*(1.5-dy3)*(1.5-dy3);
-		den += 0.5*(1.5-dz3)*(1.5-dz3);
-		densph[i] = den;
+		int nearx = RINT(xp);
+		int neary = RINT(yp);
+		int nearz = RINT(zp);
+		float xmin = xp - nearx;
+		float ymin = yp - neary;
+		float zmin = zp - nearz;
+		long xsign = icopysign(xmin);
+		long ysign = icopysign(ymin);
+		long zsign = icopysign(zmin);
+		long i1 = nearx;
+		long i2 = nearx+xsign;
+		long i3 = nearx-xsign;
+		long j1 = neary;
+		long j2 = neary+ysign;
+		long j3 = neary-ysign;
+		long k1 = nearz;
+		long k2 = nearz+zsign;
+		long k3 = nearz-zsign;
+		float xd1 = FABS(xmin);
+		float yd1 = FABS(ymin);
+		float zd1 = FABS(zmin);
+		float wx1 = (0.75-xd1*xd1);
+		float wy1 = (0.75-yd1*yd1);
+		float wz1 = (0.75-zd1*zd1);
+		float wx3 = 0.5*(0.25+xd1*(xd1-1.));
+		float wx2 = wx2 + xd1;
+		float wy3 = 0.5*(0.25+yd1*(yd1-1.));
+		float wy2 = wy2 + yd1;
+		float wz3 = 0.5*(0.25+zd1*(zd1-1.));
+		float wz2 = wz2 + zd1;
+
+		float wx1wy1 = wx1*wy1;
+		float wx2wy1 = wx2*wy1; 
+		float wx3wy1 = wx3*wy1;
+		float wx1wy2 = wx1*wy2;
+		float wx2wy2 = wx2*wy2;
+		float wx3wy2 = wx3*wy2;
+		float wx1wy3 = wx1*wy3;
+		float wx2wy3 = wx2*wy3;
+		float wx3wy3 = wx3*wy3;
+
+		float density = 0;
+		density += den(i1,j1,k1)*wx1wy1*wz1;
+		density += den(i2,j1,k1)*wx2wy1*wz1; 
+		density += den(i3,j1,k1)* wx3wy1*wz1;
+        density += den(i1,j2,k1)* wx1wy2*wz1;
+        density += den(i2,j2,k1)* wx2wy2*wz1;
+        density += den(i3,j2,k1)* wx3wy2*wz1;
+        density += den(i1,j3,k1)* wx1wy3*wz1;
+        density += den(i2,j3,k1)* wx2wy3*wz1;
+        density += den(i3,j3,k1)* wx3wy3*wz1;
+
+        density += den(i1,j1,k2)* wx1wy1*wz2;
+        density += den(i2,j1,k2) *  wx2wy1*wz2;
+        density += den(i3,j1,k2) *  wx3wy1*wz2;
+        density += den(i1,j2,k2) *  wx1wy2*wz2;
+        density += den(i2,j2,k2) *  wx2wy2*wz2;
+        density += den(i3,j2,k2) *  wx3wy2*wz2;
+        density += den(i1,j3,k2) *  wx1wy3*wz2;
+        density += den(i2,j3,k2) *  wx2wy3*wz2;
+        density += den(i3,j3,k2) *  wx3wy3*wz2;
+
+        density += den(i1,j1,k3) *  wx1wy1*wz3;
+        density += den(i2,j1,k3) *  wx2wy1*wz3;
+        density += den(i3,j1,k3) *  wx3wy1*wz3;
+        density += den(i1,j2,k3) *  wx1wy2*wz3;
+        density += den(i2,j2,k3) *  wx2wy2*wz3;
+        density += den(i3,j2,k3) *  wx3wy2*wz3;
+        density += den(i1,j3,k3) *  wx1wy3*wz3;
+        density += den(i2,j3,k3) *  wx2wy3*wz3;
+        density += den(i3,j3,k3) *  wx3wy3*wz3;
+
+
+		densph[i] = density;
 
 	}
 	DEBUGPRINT0("Now exit the density-interpolation Job\n");

@@ -954,8 +954,8 @@ void lagFindStellarCore(
 		}
 		{
 			void findDen(SimpleBasicParticleType *, int, float *, double, double, double,
-					double);
-			findDen(bp,np, densph, xmin,ymin,zmin, cellsize);
+					double, float *, int, int, int);
+			findDen(bp,np, densph, xmin,ymin,zmin, cellsize, denGrid, nx,ny,nz);
 		}
 
 
@@ -1049,7 +1049,7 @@ void lagFindStellarCore(
 #endif
         for(k=nbuff/2;k<nz-nbuff/2;k++){
             int thread_id = omp_get_thread_num();
-			int joff = ioff_cores[thread_id];
+			int koff = ioff_cores[thread_id];
             for(j=nbuff/2;j<ny-nbuff/2;j++){
                 for(i=nbuff/2;i<nx-nbuff/2;i++){
                     long ioff = i + mx*(long)(j+ny*k);
@@ -1066,7 +1066,7 @@ void lagFindStellarCore(
                         if(peakflag == 1){
                             SimpleBasicParticleType *tmp = linkedListGrid[ioff].bp;
                             float maxden = -1.e20;
-                            int ibp;
+                            long ibp;
 							long jbp;
                             while(tmp){
                                 ibp = tmp-bp;
@@ -1076,11 +1076,11 @@ void lagFindStellarCore(
                                 }
                                 tmp = tmp->bp;
                             }
-                            core[joff+numcore].peak = jbp; 
-                            core[joff+numcore].cx = bp[ibp].x; 
-                            core[joff+numcore].cy = bp[ibp].y; 
-                            core[joff+numcore].cz = bp[ibp].z; 
-                            core[joff+numcore].density = maxden;
+                            core[koff+numcore].peak = jbp; 
+                            core[koff+numcore].cx = bp[jbp].x; 
+                            core[koff+numcore].cy = bp[jbp].y; 
+                            core[koff+numcore].cz = bp[jbp].z; 
+                            core[koff+numcore].density = maxden;
                             numcore ++;
                         }
                     }
@@ -1131,7 +1131,8 @@ void lagFindStellarCore(
 	if(nnode > 65*10000) recursiveflag = PTHREAD;
 	else recursiveflag = RECURSIVE;
 //  all to all
-	recursiveflag = RECURSIVE;
+//	recursiveflag = RECURSIVE;
+	recursiveflag = SERIALIZED;
     Make_Tree_Near(TREE,nnode, ptl,np,recursiveflag);
     DEBUGPRINT("after All_Make_Tree_near for np = %d\n",np);
 #pragma omp parallel for private(i,j,k) schedule(guided)
