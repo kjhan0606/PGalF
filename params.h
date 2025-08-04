@@ -101,3 +101,8 @@
 // lowered accordingly.
 #define Gaussian_Smoothing_Length 0.010 
 //*******************
+//
+//*******************
+// mininum density
+#define DENFLOOR 1.
+//*******************

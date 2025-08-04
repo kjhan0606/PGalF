@@ -1165,6 +1165,7 @@ recycling:
 	for(i=0;i<np;i++) SET_MEMBER_ID(i,NOT_HALO_MEMBER);
 	minden = 1.e23;
 	for(i=0;i<np;i++) minden = MIN(minden,wp[i].den);
+	minden = MIN(DENFLOOR, minden);
 	DEBUGPRINT("the minimum density %g \n", minden);
 
 	int nthreads=1;
@@ -1202,7 +1203,7 @@ recycling:
 		for(i=it;i<numcore;i+=nthreads){
 			// Now find core density threshold 
 			float upden = wp[core[i].peak].den;
-			float downden = MAX(10,minden);
+			float downden = minden;
 			float denthr;
 			int mcontact;
 			int ncontact=0, now;
@@ -2746,7 +2747,7 @@ renumcore :
 		minshellden = log10(minshellden);
 		maxshellden = log10(maxshellden);
 
-		minshellden = MIN(1., minshellden);
+		minshellden = MIN(log10(DENFLOOR), minshellden);
 		nshell = 0;
 		if(np>1000) {
 			nshelldivide = MAX(NSHELLDIVIDE,NSHELLDIVIDE*log10((double)np*1.5));
