@@ -210,3 +210,5 @@ size_t pnew_fof_link(particle*,POSTYPE, FoFTStruct *, FoFTPtlStruct *,particle *
 		size_t nhalo, POSTYPE,POSTYPE,POSTYPE);
 TStruct *calThreadFreeNodeStart(size_t , size_t , size_t ,size_t , TStruct *, TStruct *);
 FoFTStruct *calFoFThreadFreeNodeStart(size_t , size_t , size_t ,size_t , FoFTStruct *, FoFTStruct *);
+
+void old_Make_Tree_Near(TStruct *, TPtlStruct *, int , Box);

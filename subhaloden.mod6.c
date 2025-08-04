@@ -1165,6 +1165,7 @@ recycling:
 	for(i=0;i<np;i++) SET_MEMBER_ID(i,NOT_HALO_MEMBER);
 	minden = 1.e23;
 	for(i=0;i<np;i++) minden = MIN(minden,wp[i].den);
+	DEBUGPRINT("the minimum density %g \n", minden);
 
 	int nthreads=1;
 #ifdef _OPENMP
@@ -1199,23 +1200,24 @@ recycling:
 #endif
 		int *contactlist = Tcontactlist + it*maxcorenumsize;
 		for(i=it;i<numcore;i+=nthreads){
-			/* Now find core density threshold */
+			// Now find core density threshold 
 			float upden = wp[core[i].peak].den;
-			float downden = minden;
+			float downden = MAX(10,minden);
 			float denthr;
 			int mcontact;
 			int ncontact=0, now;
-			while(fabs(upden-downden)/downden > COREDENRESOLUTION){
-				/* initialization before a search for the core density */
-//				for(j=0;j<np;j++) UNSET_VISITEDT(j,it);/* Set all the particle not to be visited */
+			if(i==0) DEBUGPRINT("c%d starts seeking the core density %g %g %g\n", i, upden,downden, denthr);
+			while(fabs((upden-downden)/downden) > COREDENRESOLUTION){
+				// initialization before a search for the core density 
  				for(j=0;j<ncontact;j++) {
 					int jj = contactlist[j];
-					UNSET_VISITEDT(jj,it);/* Set all the particle not to be visited */
+					UNSET_VISITEDT(jj,it);// Set all the particle not to be visited 
 				}
 				int breakflag = 0; 
 				ncontact = now = 0;
-				denthr = 0.5*(upden+downden); /* Trial value */
-				SET_VISITEDT((contactlist[ncontact++] = core[i].peak),it); /* Now peak particle is included. */
+				denthr = 0.5*(upden+downden); // Trial value 
+				if(i==0) DEBUGPRINT("c%d is seeking the core density %g %g %g\n", i, upden,downden, denthr);
+				SET_VISITEDT((contactlist[ncontact++] = core[i].peak),it); // Now peak particle is included. 
 				while(now < ncontact && breakflag ==0){
 					size_t kk = contactlist[now]*NumNeighbor;
 					for(k=0;k<NumNeighbor;k++){
@@ -1239,7 +1241,6 @@ recycling:
 			}
 			core[i].coredensity = (denthr = upden);
 			/* Now scoop up core particles */
-//			for(j=0;j<np;j++) UNSET_VISITEDT(j,it);
 			for(j=0;j<ncontact;j++) {
 				int jj = contactlist[j];
 				UNSET_VISITEDT(jj,it);
@@ -1330,7 +1331,9 @@ recycling:
 			core[i].nummem = ncontact;
 			core[i].numstar = mcontact;
 			core[i].starmass = corestarmass;
-			DEBUGPRINT("C%d has number %d in %d at %g %g\n",i,core[i].numstar, core[i].nummem, core[i].cx+Xmin, core[i].cy+Ymin);
+			DEBUGPRINT("C%d has number %d in %d den= %g/%g at %g %g %g :: %g %g %g\n",i,
+					core[i].numstar, core[i].nummem, core[i].density, core[i].coredensity,
+					core[i].cx, core[i].cy, core[i].cz, Xmin,Ymin,Zmin);
 		}
 	}
 	Free(Tcontactlist);
@@ -2742,6 +2745,8 @@ renumcore :
 		}
 		minshellden = log10(minshellden);
 		maxshellden = log10(maxshellden);
+
+		minshellden = MIN(1., minshellden);
 		nshell = 0;
 		if(np>1000) {
 			nshelldivide = MAX(NSHELLDIVIDE,NSHELLDIVIDE*log10((double)np*1.5));

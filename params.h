@@ -7,8 +7,10 @@
 
 
 //*******************
-// fractional error to measure the core density
-#define COREDENRESOLUTION (1.e2L) 
+// fractional error to measure 
+// the core density in ratio
+#define COREDENRESOLUTION (1.e-4) 
+//*******************
 
 
 //*******************
@@ -18,13 +20,43 @@
 //*******************
 
 //--------------------------------
-// please tune these six parameters for higher resolution simulations 
-#define MINCORENMEM 100 // the minimum number of star/dm particles to make a core 
-#define NUMNEIGHBOR 8 // the number of neighbors to build the neighbor network 
-#define NSHELLDIVIDE 10 // the number of division of non-core particles 
-#define MERGINGPEAKLENGTH 4.e-3  // the separation limit of peaks to merge in cMpc/h 
-#define MINCORESTARMASS -1 // the minimum stellar mass for a core 
-#define MINSTELLARMASS 1.e7  // the minimun stellar mass of the FoF halo for galaxy finding with stellar density 
+// please tune these six parameters 
+// for higher resolution simulations 
+//
+//*******************
+// the minimum number of star/dm 
+// particles to identify a core 
+#define MINCORENMEM 100 
+//*******************
+
+//*******************
+// the number of neighbors to build 
+// the neighbor network 
+#define NUMNEIGHBOR 10 
+//*******************
+
+//*******************
+// the number of division of non-core 
+// particles 
+#define NSHELLDIVIDE 10 
+//*******************
+
+//*******************
+// the separation limit of peaks 
+// to merge in cMpc/h 
+#define MERGINGPEAKLENGTH 4.e-3  
+//*******************
+
+//*******************
+// the minimum stellar mass for a core 
+#define MINCORESTARMASS -1 
+//*******************
+
+//*******************
+// the minimun stellar mass of the FoF halo 
+// for galaxy finding with stellar density 
+#define MINSTELLARMASS 1.e7  
+//*******************
 //--------------------------------
 
 //*******************

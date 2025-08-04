@@ -35,6 +35,9 @@ void findDen(SimpleBasicParticleType *bp,int np, float *densph, double xmin, dou
 		){
 	long mx = 2*(nx/2+1);
 	long i,j,k;
+#ifdef _OPENMP
+#pragma omp parallel for private(i)
+#endif
 	for(i=0;i<np;i++){
 		double xp = (bp[i].x - xmin)/cellsize;
 		double yp = (bp[i].y - ymin)/cellsize;
@@ -64,11 +67,11 @@ void findDen(SimpleBasicParticleType *bp,int np, float *densph, double xmin, dou
 		float wy1 = (0.75-yd1*yd1);
 		float wz1 = (0.75-zd1*zd1);
 		float wx3 = 0.5*(0.25+xd1*(xd1-1.));
-		float wx2 = wx2 + xd1;
+		float wx2 = wx3 + xd1;
 		float wy3 = 0.5*(0.25+yd1*(yd1-1.));
-		float wy2 = wy2 + yd1;
+		float wy2 = wy3 + yd1;
 		float wz3 = 0.5*(0.25+zd1*(zd1-1.));
-		float wz2 = wz2 + zd1;
+		float wz2 = wz3 + zd1;
 
 		float wx1wy1 = wx1*wy1;
 		float wx2wy1 = wx2*wy1; 

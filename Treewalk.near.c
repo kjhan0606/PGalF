@@ -9,7 +9,7 @@
 #include "near.h"
 #define MIN(A,B) ((A)<(B) ? (A):(B))
 #define MAX(A,B) ((A)>(B) ? (A):(B))
-void Make_Tree_Near(TStruct *TREE_START,TPtlStruct *ptl,int np,Box box){
+void old_Make_Tree_Near(TStruct *TREE_START,TPtlStruct *ptl,int np,Box box){
 	BeginEndTree beginend;
 	int i;
 	TStruct *NewTree;

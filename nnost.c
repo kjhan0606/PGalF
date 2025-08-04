@@ -44,6 +44,37 @@ float W4(float ,float );
 #define YES 1
 #define NO 0
 */
+#define OFFSET 0.001
+Box findbox(TPtlStruct *ptl, int nend){
+    float xmin,ymin,zmin,xmax,ymax,zmax;
+    float width;
+    Box box;
+    int i;
+    box.x = box.y = box.z = 0.;
+    width=xmax=ymax=zmax = -1.E25;
+    xmin=ymin=zmin = 1.E25;
+    for(i=0;i<nend;i++){
+        xmin = MIN(xmin,ptl[i].x);
+        ymin = MIN(ymin,ptl[i].y);
+        zmin = MIN(zmin,ptl[i].z);
+        xmax = MAX(xmax,ptl[i].x);
+        ymax = MAX(ymax,ptl[i].y);
+        zmax = MAX(zmax,ptl[i].z);
+    }
+    width = MAX(width,xmax-xmin);
+    width = MAX(width,ymax-ymin);
+    width = MAX(width,zmax-zmin);
+    box.x = xmin;
+    box.y = ymin;
+    box.z = zmin;
+    box.width = width;
+    box.x = box.x -box.width*OFFSET;
+    box.y = box.y -box.width*OFFSET;
+    box.z = box.z -box.width*OFFSET;
+    box.width = box.width + box.width*OFFSET*2.;
+    return box;
+}
+
 
 
 #define SubCellDicision(a,b) ((a)>(b)? 1:0)
@@ -71,7 +102,7 @@ TStruct *calThreadFreeNodeStart(size_t navail, size_t twork, size_t mys,size_t m
 }
 
 
-TStruct *divide_node_Near(TStruct *motherNode, TStruct *nextFreeNode, int recursiveflag)
+TStruct *new_divide_node_Near(TStruct *motherNode, TStruct *nextFreeNode, int recursiveflag)
 {
 	TStruct *p2tree, tmpnode[8];
 	void *lastOffspring;
@@ -157,7 +188,7 @@ TStruct *divide_node_Near(TStruct *motherNode, TStruct *nextFreeNode, int recurs
 		TStruct *NextJobNode = firstDaughter;
 		for(i=0;i<8;i++){
 			if(divideThisNode(motherNode, tmpnode[i].Nparticle) ){
-				nextFreeNode = divide_node_Near(NextJobNode,nextFreeNode, recursiveflag);
+				nextFreeNode = new_divide_node_Near(NextJobNode,nextFreeNode, recursiveflag);
 				NextJobNode ++;
 			}
 		}
@@ -165,7 +196,7 @@ TStruct *divide_node_Near(TStruct *motherNode, TStruct *nextFreeNode, int recurs
 	return nextFreeNode;
 }
 
-void Make_Tree_Near(
+void new_Make_Tree_Near(
 		TStruct *TREE_START, 
 		size_t nnode, 
 		TPtlStruct *ptl, 
@@ -181,18 +212,18 @@ void Make_Tree_Near(
 	ptl[np-1].sibling = NULL;
 	TREE_START->daughter = &(ptl[0]);
 	TREE_START->Nparticle = np;
-	if(recursiveflag == RECURSIVE) nextFreeNode = divide_node_Near(TREE_START, nextFreeNode, recursiveflag);
+	if(recursiveflag == RECURSIVE) nextFreeNode = new_divide_node_Near(TREE_START, nextFreeNode, recursiveflag);
 	else if(recursiveflag == SERIALIZED){
 		TStruct *work;
 		for(work=TREE_START;nextFreeNode-work >0; work++){
-			nextFreeNode = divide_node_Near(work, nextFreeNode, SERIALIZED);
+			nextFreeNode = new_divide_node_Near(work, nextFreeNode, SERIALIZED);
 		}
 	}
 	else if(recursiveflag == PTHREAD) 
 	{
 		TStruct *work = TREE_START;
 		do{
-			nextFreeNode = divide_node_Near(work, nextFreeNode, PTHREAD);
+			nextFreeNode = new_divide_node_Near(work, nextFreeNode, PTHREAD);
 			work ++;
 		}
 		while( work < nextFreeNode &&  (nextFreeNode-work) < 64);
@@ -216,7 +247,7 @@ void Make_Tree_Near(
 			threadnextFreeNode = calThreadFreeNodeStart(navail, twork, 
 					mys,myf, work, nextFreeNode);
 			for(j=mys;j<myf;j++) {
-				threadnextFreeNode = divide_node_Near(work+j,threadnextFreeNode,RECURSIVE);
+				threadnextFreeNode = new_divide_node_Near(work+j,threadnextFreeNode,RECURSIVE);
 			}
 		}
 	}
@@ -485,7 +516,7 @@ void findsphdensity(SimpleBasicParticleType *bp,int np,int *nearindex, int Numne
 	else recursiveflag = RECURSIVE;
 
 	recursiveflag = RECURSIVE;
-	Make_Tree_Near(TREE,nnode, ptl,np,recursiveflag);
+	new_Make_Tree_Near(TREE,nnode, ptl,np,recursiveflag);
     float mindist;
     mindist = 2.e25;
 #pragma omp parallel for private(i,j,k) schedule(guided)
@@ -566,7 +597,7 @@ void starfindsphdensity(SimpleBasicParticleType *bp,int np,int *nearindex, int N
 	else recursiveflag = RECURSIVE;
 
 	recursiveflag = RECURSIVE;
-    Make_Tree_Near(TREE,nnode, ptl,mp,recursiveflag);
+    new_Make_Tree_Near(TREE,nnode, ptl,mp,recursiveflag);
     DEBUGPRINT("after Star_Make_Tree_near for nstar = %d\n",mp);
     float mindist;
     mindist = 2.e25;
@@ -600,7 +631,7 @@ void starfindsphdensity(SimpleBasicParticleType *bp,int np,int *nearindex, int N
 	recursiveflag = RECURSIVE;
 	nnode = MAX(np/2, 65*10000);
 	TREE = Realloc(TREE, sizeof(TStruct)*nnode);
-    Make_Tree_Near(TREE,nnode, ptl,np,recursiveflag);
+    new_Make_Tree_Near(TREE,nnode, ptl,np,recursiveflag);
     DEBUGPRINT("before Make_Tree_near2 with np= %d\n", np);
 #pragma omp parallel for private(i,j,k) schedule(dynamic)
     for(i=0;i<np;i++){
@@ -685,7 +716,7 @@ void findStellarCore(
 	if(nnode > 65*10000) recursiveflag = PTHREAD;
 	else recursiveflag = RECURSIVE;
 	recursiveflag = RECURSIVE;
-    Make_Tree_Near(TREE,nnode, ptl,nstar,recursiveflag);
+    new_Make_Tree_Near(TREE,nnode, ptl,nstar,recursiveflag);
     DEBUGPRINT("after Star_Make_Tree_near for nstar = %d\n",nstar);
 //  all to star
 #pragma omp parallel for private(i,j) schedule(guided)
@@ -823,7 +854,7 @@ void findStellarCore(
 	else recursiveflag = RECURSIVE;
 //  all to all
 	recursiveflag = RECURSIVE;
-    Make_Tree_Near(TREE,nnode, ptl,np,recursiveflag);
+    new_Make_Tree_Near(TREE,nnode, ptl,np,recursiveflag);
     DEBUGPRINT("after All_Make_Tree_near for np = %d\n",np);
 #pragma omp parallel for private(i,j,k) schedule(guided)
     for(i=0;i<np;i++){
@@ -871,7 +902,7 @@ void lagFindStellarCore(
     int ntmp;
     float tmpx,tmpy,tmpz;
     float fplmf,ptlmass;
-    size_t i,j,k;
+    long i,j,k;
     int N,M;
     TPtlStruct *ptl;
     TStruct *TREE;
@@ -967,9 +998,9 @@ void lagFindStellarCore(
 		}
 		for(i=0;i<np;i++){
 			if(bp[i].type == TYPE_STAR){
-				long ir = (bp[i].x-xmin)/cellsize;
-				long jr = (bp[i].y-ymin)/cellsize;
-				long kr = (bp[i].z-zmin)/cellsize;
+				long ir = rint((bp[i].x-xmin)/cellsize);
+				long jr = rint((bp[i].y-ymin)/cellsize);
+				long kr = rint((bp[i].z-zmin)/cellsize);
 				long ioff = ir+mx*(jr+ny*kr);
 				SimpleBasicParticleType *tmp = linkedListGrid[ioff].bp;
 				linkedListGrid[ioff].bp = bp+i;
@@ -1128,16 +1159,22 @@ void lagFindStellarCore(
 	nnode = MAX(np/2,65*10000);
     TREE = (TStruct *) Malloc(sizeof(TStruct)*nnode,PPTR(TREE));
 
-	if(nnode > 65*10000) recursiveflag = PTHREAD;
-	else recursiveflag = RECURSIVE;
 //  all to all
-//	recursiveflag = RECURSIVE;
-	recursiveflag = SERIALIZED;
-    Make_Tree_Near(TREE,nnode, ptl,np,recursiveflag);
+	if(0){
+		if(nnode > 65*10000) recursiveflag = PTHREAD;
+		else recursiveflag = RECURSIVE;
+		recursiveflag = SERIALIZED;
+	    new_Make_Tree_Near(TREE,nnode, ptl,np,recursiveflag);
+	}
+	else { 
+		Box box;
+		Box findbox(TPtlStruct *, int);
+		box = findbox(ptl, np);
+		old_Make_Tree_Near(TREE, ptl,np,box);
+	}
     DEBUGPRINT("after All_Make_Tree_near for np = %d\n",np);
 #pragma omp parallel for private(i,j,k) schedule(guided)
     for(i=0;i<np;i++){
-//		DEBUGPRINT("p%d  is now being processed: %d\n", i, recursiveflag);
         int res;
         int tmpindx[NUMNEIGHBOR];
         float mass[NUMNEIGHBOR];

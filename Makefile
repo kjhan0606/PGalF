@@ -5,7 +5,8 @@
 #--- Objects to build 
 OBJS		= gfind.o Memory2.o force_spline.mod3.o ost.o \
 				subhaloden.mod6.o nrutil.o b2l.o spline.mod2.o \
-				nnost.o  utils.o mkRtidal.o tsc_omp2.o gsmooth.o
+				nnost.o  utils.o mkRtidal.o tsc_omp2.o gsmooth.o \
+				Treewalk.near.o
 
 PROGS =  gfind.exe
 all: 
