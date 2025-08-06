@@ -84,38 +84,68 @@ void findDen(SimpleBasicParticleType *bp,int np, float *densph, double xmin, dou
 		float wx3wy3 = wx3*wy3;
 
 		float density = 0;
-		density += den(i1,j1,k1)*wx1wy1*wz1;
-		density += den(i2,j1,k1)*wx2wy1*wz1; 
-		density += den(i3,j1,k1)* wx3wy1*wz1;
-        density += den(i1,j2,k1)* wx1wy2*wz1;
-        density += den(i2,j2,k1)* wx2wy2*wz1;
-        density += den(i3,j2,k1)* wx3wy2*wz1;
-        density += den(i1,j3,k1)* wx1wy3*wz1;
-        density += den(i2,j3,k1)* wx2wy3*wz1;
-        density += den(i3,j3,k1)* wx3wy3*wz1;
+		density += den(i1,j1,k1) * wx1wy1*wz1;
+		density += den(i2,j1,k1) * wx2wy1*wz1; 
+		density += den(i3,j1,k1) * wx3wy1*wz1;
+        density += den(i1,j2,k1) * wx1wy2*wz1;
+        density += den(i2,j2,k1) * wx2wy2*wz1;
+        density += den(i3,j2,k1) * wx3wy2*wz1;
+        density += den(i1,j3,k1) * wx1wy3*wz1;
+        density += den(i2,j3,k1) * wx2wy3*wz1;
+        density += den(i3,j3,k1) * wx3wy3*wz1;
 
-        density += den(i1,j1,k2)* wx1wy1*wz2;
-        density += den(i2,j1,k2) *  wx2wy1*wz2;
-        density += den(i3,j1,k2) *  wx3wy1*wz2;
-        density += den(i1,j2,k2) *  wx1wy2*wz2;
-        density += den(i2,j2,k2) *  wx2wy2*wz2;
-        density += den(i3,j2,k2) *  wx3wy2*wz2;
-        density += den(i1,j3,k2) *  wx1wy3*wz2;
-        density += den(i2,j3,k2) *  wx2wy3*wz2;
-        density += den(i3,j3,k2) *  wx3wy3*wz2;
+        density += den(i1,j1,k2) * wx1wy1*wz2;
+        density += den(i2,j1,k2) * wx2wy1*wz2;
+        density += den(i3,j1,k2) * wx3wy1*wz2;
+        density += den(i1,j2,k2) * wx1wy2*wz2;
+        density += den(i2,j2,k2) * wx2wy2*wz2;
+        density += den(i3,j2,k2) * wx3wy2*wz2;
+        density += den(i1,j3,k2) * wx1wy3*wz2;
+        density += den(i2,j3,k2) * wx2wy3*wz2;
+        density += den(i3,j3,k2) * wx3wy3*wz2;
 
-        density += den(i1,j1,k3) *  wx1wy1*wz3;
-        density += den(i2,j1,k3) *  wx2wy1*wz3;
-        density += den(i3,j1,k3) *  wx3wy1*wz3;
-        density += den(i1,j2,k3) *  wx1wy2*wz3;
-        density += den(i2,j2,k3) *  wx2wy2*wz3;
-        density += den(i3,j2,k3) *  wx3wy2*wz3;
-        density += den(i1,j3,k3) *  wx1wy3*wz3;
-        density += den(i2,j3,k3) *  wx2wy3*wz3;
-        density += den(i3,j3,k3) *  wx3wy3*wz3;
+        density += den(i1,j1,k3) * wx1wy1*wz3;
+        density += den(i2,j1,k3) * wx2wy1*wz3;
+        density += den(i3,j1,k3) * wx3wy1*wz3;
+        density += den(i1,j2,k3) * wx1wy2*wz3;
+        density += den(i2,j2,k3) * wx2wy2*wz3;
+        density += den(i3,j2,k3) * wx3wy2*wz3;
+        density += den(i1,j3,k3) * wx1wy3*wz3;
+        density += den(i2,j3,k3) * wx2wy3*wz3;
+        density += den(i3,j3,k3) * wx3wy3*wz3;
 
 
 		densph[i] = density;
+		if(i == 90999959) {
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i1,j1,k1) , wx1wy1*wz1);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i2,j1,k1) , wx2wy1*wz1);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i3,j1,k1) , wx3wy1*wz1);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i1,j2,k1) , wx1wy2*wz1);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i2,j2,k1) , wx2wy2*wz1);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i3,j2,k1) , wx3wy2*wz1);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i1,j3,k1) , wx1wy3*wz1);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i2,j3,k1) , wx2wy3*wz1);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i3,j3,k1) , wx3wy3*wz1);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i1,j1,k2) , wx1wy1*wz2);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i2,j1,k2) , wx2wy1*wz2);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i3,j1,k2) , wx3wy1*wz2);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i1,j2,k2) , wx1wy2*wz2);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i2,j2,k2) , wx2wy2*wz2);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i3,j2,k2) , wx3wy2*wz2);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i1,j3,k2) , wx1wy3*wz2);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i2,j3,k2) , wx2wy3*wz2);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i3,j3,k2) , wx3wy3*wz2);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i1,j1,k3) , wx1wy1*wz3);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i2,j1,k3) , wx2wy1*wz3);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i3,j1,k3) , wx3wy1*wz3);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i1,j2,k3) , wx1wy2*wz3);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i2,j2,k3) , wx2wy2*wz3);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i3,j2,k3) , wx3wy2*wz3);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i1,j3,k3) , wx1wy3*wz3);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i2,j3,k3) , wx2wy3*wz3);
+			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i3,j3,k3) , wx3wy3*wz3);
+			DEBUGPRINT("p%d has final density %g\n", i, density);
+		}
 
 	}
 	DEBUGPRINT0("Now exit the density-interpolation Job\n");
@@ -148,18 +178,8 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 
 //	if(myid==0) printf("Now in the OMP tsc: %d %d %d %g\n", local_nz,nstart_z,np, pmas);
 
-	/*
-	nxperiodic = (long long *)Malloc(sizeof(long long)*(nx+10),PPTR(nxperiodic)); nxp = nxperiodic+5;
-	nyperiodic = (long long *)Malloc(sizeof(long long)*(ny+10),PPTR(nyperiodic)); nyp = nyperiodic+5;
-	nzperiodic = (long long *)Malloc(sizeof(long long)*(nz_per+10),PPTR(nzperiodic)); nzp = nzperiodic+5;
-	*/
 	{
 		long long i;
-		/*
-		for(i=-5;i<nx+5;i++) nxp[i] = (i+nx)%nx;
-		for(i=-5;i<ny+5;i++) nyp[i] = (i+ny)%ny;
-		for(i=-5;i<nz_per+5;i++) nzp[i] = (i+nz_per)%nz_per;
-		*/
 
 
 		mx = 2*(nx/2+1);
@@ -202,20 +222,12 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 	signed char *target = (signed char*)Malloc(sizeof(short)*np, PPTR(target));
 #ifdef _OPENMP
 	{
-#ifdef XYZDBL
 		double Xwidth = (double)nxyz/(double)mthreads;
-#else
-		double Xwidth = (double)nxyz/(double)mthreads;
-#endif
 		long long i;
 #pragma omp parallel for num_threads(mthreads)
 		for(i=0;i<np;i++){
 			if(bp[i].type != TYPE_STAR) continue;
-#ifdef XYZDBL
 			double xp;
-#else
-			double xp;
-#endif
 			if(nxyz == nx) {
 				xp = (bp[i].x-Xmin)/cellsize;
 			}

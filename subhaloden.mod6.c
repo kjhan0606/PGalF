@@ -604,7 +604,7 @@ void SaveRemainingParticles2LastShell(int np,Coretype  *core,int numcore){
 }
 void GetShellParticlesPeaks(int np,int *neighbor,int NumNeighbor,
 		Coretype *core,int numcore, float dthreshold){
-	int i,j,k,jj,kk;
+	long i,j,k,jj,kk;
 	int icore,*contactlist,nlist=0;
 	int numenclosedpeaks;
 	int now,new;
@@ -624,7 +624,7 @@ void GetShellParticlesPeaks(int np,int *neighbor,int NumNeighbor,
 		now = nlist = 0;
 		SET_VISITED((contactlist[nlist++]= core[nowcore].peak));
 		while(now<nlist){
-			kk = contactlist[now]*NumNeighbor;
+			kk = (long)contactlist[now]*(long)NumNeighbor;
 			for(k=0;k<NumNeighbor;k++){
 				new = neighbor[kk];
 				if(wp[new].den > dthreshold && IS_VISITED(new) == NOT){
@@ -767,7 +767,7 @@ int DMSmartFinding(SimpleBasicParticleType *bp,int np,Coretype *core,int numcore
 				denthr = 0.25*(3.*upden+downden);
 				SET_VISITED((contactlist[ncontact++] = (score[i].core)->peak));
 				while(now<ncontact && breakflag ==0){
-					size_t kk = contactlist[now]*NumNeighbor;
+					long kk = (long)contactlist[now]*(long)NumNeighbor;
 					for(k=0;k<NumNeighbor;k++){
 						new = neighbor[kk];
 						if(wp[new].den>denthr){
@@ -813,7 +813,7 @@ int DMSmartFinding(SimpleBasicParticleType *bp,int np,Coretype *core,int numcore
 
 			SET_VISITED((contactlist[ncontact++] = (score[i].core)->peak));
 			while(now<ncontact){
-				size_t kk = contactlist[now]*NumNeighbor;
+				long kk = (long)contactlist[now]*(long)NumNeighbor;
 				for(k=0;k<NumNeighbor;k++){
 					new = neighbor[kk];
 					if(wp[new].den > denthr && IS_VISITED(new) == NOT){
@@ -943,7 +943,7 @@ int SmartFinding(SimpleBasicParticleType *bp,int np,Coretype *core,int numcore,
 				denthr = 0.25*(3.*upden+downden);
 				SET_VISITED((contactlist[ncontact++] = (score[i].core)->peak));
 				while(now<ncontact && breakflag ==0){
-					size_t kk = contactlist[now]*NumNeighbor;
+					long kk = (long)contactlist[now]*(long)NumNeighbor;
 					for(k=0;k<NumNeighbor;k++){
 						new = neighbor[kk];
 						if(wp[new].den>denthr){
@@ -989,7 +989,7 @@ int SmartFinding(SimpleBasicParticleType *bp,int np,Coretype *core,int numcore,
 
 			SET_VISITED((contactlist[ncontact++] = (score[i].core)->peak));
 			while(now<ncontact){
-				size_t kk = contactlist[now]*NumNeighbor;
+				long kk = (long)contactlist[now]*(long)NumNeighbor;
 				for(k=0;k<NumNeighbor;k++){
 					new = neighbor[kk];
 					if(wp[new].den > denthr && IS_VISITED(new) == NOT){
@@ -1165,7 +1165,7 @@ recycling:
 	for(i=0;i<np;i++) SET_MEMBER_ID(i,NOT_HALO_MEMBER);
 	minden = 1.e23;
 	for(i=0;i<np;i++) minden = MIN(minden,wp[i].den);
-	minden = MIN(DENFLOOR, minden);
+	minden = MAX(DENFLOOR, minden);
 	DEBUGPRINT("the minimum density %g \n", minden);
 
 	int nthreads=1;
@@ -1199,7 +1199,7 @@ recycling:
 #ifdef _OPENMP
 		it = omp_get_thread_num();
 #endif
-		int *contactlist = Tcontactlist + it*maxcorenumsize;
+		int *contactlist = Tcontactlist + (long)it*maxcorenumsize;
 		for(i=it;i<numcore;i+=nthreads){
 			// Now find core density threshold 
 			float upden = wp[core[i].peak].den;
@@ -1207,7 +1207,7 @@ recycling:
 			float denthr;
 			int mcontact;
 			int ncontact=0, now;
-			if(i==0) DEBUGPRINT("c%d starts seeking the core density %g %g %g\n", i, upden,downden, denthr);
+			if(i==70) DEBUGPRINT("c%d starts seeking the core density %g %g %g : p%d\n", i, upden,downden, denthr, core[i].peak);
 			while(fabs((upden-downden)/downden) > COREDENRESOLUTION){
 				// initialization before a search for the core density 
  				for(j=0;j<ncontact;j++) {
@@ -1217,10 +1217,9 @@ recycling:
 				int breakflag = 0; 
 				ncontact = now = 0;
 				denthr = 0.5*(upden+downden); // Trial value 
-				if(i==0) DEBUGPRINT("c%d is seeking the core density %g %g %g\n", i, upden,downden, denthr);
 				SET_VISITEDT((contactlist[ncontact++] = core[i].peak),it); // Now peak particle is included. 
 				while(now < ncontact && breakflag ==0){
-					size_t kk = contactlist[now]*NumNeighbor;
+					long kk = (long)contactlist[now]*(long)NumNeighbor;
 					for(k=0;k<NumNeighbor;k++){
 						int new = neighbor[kk];
 						if(wp[new].den>denthr) {
@@ -1238,6 +1237,7 @@ recycling:
 					}
 					now++;
 				}
+				if(i==70) DEBUGPRINT("c%d is seeking the core density %g %g %g: found np= %d\n", i, upden,downden, denthr, ncontact);
 				if(breakflag==0) upden = denthr;
 			}
 			core[i].coredensity = (denthr = upden);
@@ -1257,7 +1257,7 @@ recycling:
 
 			SET_VISITEDT((contactlist[ncontact++] = core[i].peak),it);
 			while(now<ncontact){
-				size_t kk = contactlist[now]*NumNeighbor;
+				long kk = (long)contactlist[now]*(long)NumNeighbor;
 				for(k=0;k<NumNeighbor;k++){
 					int new = neighbor[kk];
 					if(wp[new].den > denthr && IS_VISITEDT(new,it) == NOT){
@@ -2650,7 +2650,7 @@ int subhalo_den(FoFTPtlStruct *rbp, lint np,lint *p2halo){
 					&neighbor);
 					*/
 #else
-			neighbor = (int*)Malloc(sizeof(int)*np*NumNeighbor,PPTR(neighbor));
+			neighbor = (int*)Malloc(sizeof(int)*np*(long)NumNeighbor,PPTR(neighbor));
 			void starfindsphdensity(SimpleBasicParticleType *,int ,int *, int , float *);
 			starfindsphdensity(bp,np,neighbor,NumNeighbor,density);
 			numcore = finddenpeak(density,NumNeighbor,neighbor,np,&core,1,bp);
@@ -2744,10 +2744,10 @@ renumcore :
 		for(i=0;i<np;i++){ /* set the minium value with the minimum particle density */
 			minshellden = MIN(minshellden,wp[i].den);
 		}
+		minshellden = MAX(DENFLOOR, minshellden);
 		minshellden = log10(minshellden);
 		maxshellden = log10(maxshellden);
 
-		minshellden = MIN(log10(DENFLOOR), minshellden);
 		nshell = 0;
 		if(np>1000) {
 			nshelldivide = MAX(NSHELLDIVIDE,NSHELLDIVIDE*log10((double)np*1.5));

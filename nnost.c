@@ -927,7 +927,7 @@ void lagFindStellarCore(
 
 	if(1){
 		float RG = Gaussian_Smoothing_Length;
-		int nbuff = 10;
+		int nbuff = NCELLBUFF;
 		double cellsize = TSC_CELL_SIZE;
 		int nx,ny,nz;
 		double xmin,ymin,zmin,xmax,ymax,zmax;
@@ -947,8 +947,6 @@ void lagFindStellarCore(
 		xmax = xmax + (xmax-xmin)*0.0001; // making a buffer to avoid the numerical exception
 		ymax = ymax + (ymax-ymin)*0.0001;
 		zmax = zmax + (zmax-zmin)*0.0001;
-		if((xmax-xmin)/cellsize<100 || (ymax-ymin)/cellsize < 100 ||
-				(zmax-zmin)/cellsize < 100 ) nbuff = 30;
 		nx = (xmax-xmin)/cellsize + nbuff; // buffer for the periodic boundary condition
 		ny = (ymax-ymin)/cellsize + nbuff;
 		nz = (zmax-zmin)/cellsize + nbuff;
@@ -996,6 +994,7 @@ void lagFindStellarCore(
 			linkedListGrid[i].bp = NULL;
 			linkedListGrid[i].np = 0;
 		}
+		int halfnbuff = NCELLBUFF/2;
 		for(i=0;i<np;i++){
 			if(bp[i].type == TYPE_STAR){
 				long ir = rint((bp[i].x-xmin)/cellsize);
@@ -1127,11 +1126,13 @@ void lagFindStellarCore(
 	}
 
 
+	DEBUGPRINT("C70 has peak id= %d  den= %g before merging\n", core[70].peak, core[70].density);
 
 	int MergingPeak(SimpleBasicParticleType *, int, Coretype *, int, int);
 	if(numcore >10) numcore = MergingPeak(bp,np, core, numcore,0);
 	core = *Core = Realloc(*Core, sizeof(Coretype)*numcore);
 
+	DEBUGPRINT("C70 has peak id= %d  den= %g after merging\n", core[70].peak, core[70].density);
 
 
 

@@ -106,3 +106,9 @@
 // mininum density
 #define DENFLOOR 1.
 //*******************
+//
+//
+//
+// the (even) number of cell buffer. 
+#define NCELLBUFF 10
+//*******************
