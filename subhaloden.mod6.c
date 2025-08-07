@@ -236,7 +236,7 @@ unsigned char setbits(unsigned char x,int p) {
 	return b;
 }
 
-#define MAXTHREADS 16
+#define MAXTHREADS 64
 
 typedef struct WorkingParticle{
 	float den;

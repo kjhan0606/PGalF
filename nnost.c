@@ -290,25 +290,45 @@ typedef struct nearestneighbor{
 	maxdist = sqrtf(maxdist2);\
 }while(0)
 
-int Find_Near_test(
+#define INSERT_PreCopied(dist2, maxdist, maxdist2, npneigh, neighbor) do{\
+	for(i=0;i<npneigh;i++) {\
+		if(neighbor[i].dist2>=dist2) break;\
+	}\
+	if(neighbor[i].indx != ( (TPtlStruct*)ptr)-ptl){\
+		for(j=npneigh-1;j>=i;j--) neighbor[j+1] = neighbor[j];\
+		neighbor[i].dist2 = dist2;\
+		neighbor[i].indx = ( (TPtlStruct*)ptr)-ptl;\
+		npneigh ++;\
+		npneigh=MIN(Num_neighbor,npneigh);\
+		maxdist2 = (neighbor[npneigh-1].dist2);\
+		maxdist = sqrtf(maxdist2);\
+	}\
+}while(0)
+
+
+int sortneighdist2(const void *a, const void *b){
+	Neighbor *aa = (Neighbor*)a;
+	Neighbor *bb = (Neighbor*)b;
+	if(aa->dist2 < bb->dist2) return -1;
+	else if(aa->dist2 > bb->dist2) return 1;
+	else return 0;
+}
+
+int Find_Near_PreCopied(
 		particle *point, 
 		int Num_neighbor, 
 		TStruct *tree, 
 		TPtlStruct *ptl, 
-		float *maxr, 
 		int *nearindx,
-		dptype *DIST2,
-		float *MASS, 
-		float *densph
+		Neighbor *neighbor,
+		int npneigh
 		){
 	int i,j,k;
 	dptype dist2, tmpx,tmpy,tmpz;
-	dptype maxdist, maxdist2;
 	void *ptr;
-	int npneigh=0;
-	Neighbor neighbor[MAX_NUM_NEAR]={0};
-	maxdist = maxdist2 = 1.E23;
 	ptr = (void*)tree;
+	dptype maxdist2 = neighbor[npneigh-1].dist2;
+	dptype maxdist = sqrt(maxdist2);
 	while(ptr != NULL){
 		switch( ((TYPE*)ptr)->type) {
 			case TYPE_TREE:
@@ -326,22 +346,13 @@ int Find_Near_test(
 				tmpz = point->z - ((TPtlStruct *)ptr)->z;
 				dist2 = tmpx*tmpx + tmpy*tmpy + tmpz*tmpz;
 				if(npneigh < Num_neighbor || dist2<maxdist2){
-					INSERT(dist2, maxdist, maxdist2, npneigh, neighbor);
-					DEBUGPRINT("xyz= %g %g %g / xyz= %g %g %g with id= %ld\n",
-							point->x,point->y,
-							point->z,((TPtlStruct *)ptr)->x,((TPtlStruct *)ptr)->y,
-							((TPtlStruct *)ptr)->z,
-							( (TPtlStruct*)ptr)-ptl);
+					INSERT_PreCopied(dist2, maxdist, maxdist2, npneigh, neighbor);
 				}
 				ptr = (void *) (((TPtlStruct*)ptr)->sibling);
 		}
 	}
-	*maxr = maxdist;
 	for(i=0;i<npneigh;i++) {
 		nearindx[i] = neighbor[i].indx;
-		DIST2[i] = neighbor[i].dist2;
-		MASS[i] = neighbor[i].mass;
-		DEBUGPRINT("final detection %d nearindx: %d dist2= %g den= %g\n", i, nearindx[i], DIST2[i], densph[nearindx[i]]);
 	}
 	return npneigh;
 }
@@ -984,12 +995,14 @@ void lagFindStellarCore(
 	int recursiveflag; 
 
 
-	if(1){
+	int nx,ny,nz;
+	long mx,ncells;
+	double xmin,ymin,zmin,xmax,ymax,zmax;
+	double cellsize = TSC_CELL_SIZE;
+
+	{
 		float RG = Gaussian_Smoothing_Length;
 		int nbuff = NCELLBUFF;
-		double cellsize = TSC_CELL_SIZE;
-		int nx,ny,nz;
-		double xmin,ymin,zmin,xmax,ymax,zmax;
 		float *denGrid;
 		LinkedListGrid *linkedListGrid;
 
@@ -1011,8 +1024,8 @@ void lagFindStellarCore(
 		nz = (zmax-zmin)/cellsize + nbuff;
 		xmin -= cellsize*nbuff/2.; ymin -= cellsize*nbuff/2.; zmin -= cellsize*nbuff/2.;
 
-		int mx = 2*(nx/2+1);
-		long ncells = mx*ny*nz;
+		mx = 2*(nx/2+1);
+		ncells = mx*ny*nz;
 		denGrid = (float*)Malloc(sizeof(float)*ncells,PPTR(denGrid));
 		{	
 			void assign_density_TSC(SimpleBasicParticleType *, int, float *, int, int, int,
@@ -1179,9 +1192,9 @@ void lagFindStellarCore(
 		numcore = 0;
 		for(i=0;i<nthreads;i++) numcore += num_cores[i];
 		DEBUGPRINT("The number of cores: %d before MergingPeak\n", numcore);
-
 		Free(linkedListGrid);
 		Free(denGrid);
+
 	}
 
 
@@ -1233,29 +1246,92 @@ void lagFindStellarCore(
 		old_Make_Tree_Near(TREE, ptl,np,box);
 	}
     DEBUGPRINT("after All_Make_Tree_near for np = %d\n",np);
+	
+	if(np < 1000000){ // an old and slow version
 #pragma omp parallel for private(i,j,k) schedule(guided)
-    for(i=0;i<np;i++){
-        int res;
-        int tmpindx[NUMNEIGHBOR];
-        float mass[NUMNEIGHBOR];
-        dptype dist2[NUMNEIGHBOR];
-        float neardist;
-        k = i*Numnear;
-		if(i==90999959){
-        	res = Find_Near_test(p+i,Numnear,TREE,ptl,&neardist,tmpindx,
-				dist2, mass, densph);
+	    for(i=0;i<np;i++){ 
+			int res;
+            int tmpindx[NUMNEIGHBOR];
+            float mass[NUMNEIGHBOR];
+            dptype dist2[NUMNEIGHBOR];
+            float neardist;
+            k = i*Numnear;
+			res = Find_Near(p+i,Numnear,TREE,ptl,&neardist,tmpindx,
+                    dist2, mass);
+            if(res != Numnear){
+                DEBUGPRINT("error occurred %d %d : %d\n", res, Numnear, np);
+                exit(99);
+            }
+            for(j=0;j<res;j++){
+                nearindex[k+j] = tmpindx[j];
+            }
 		}
-		else {
-        	res = Find_Near(p+i,Numnear,TREE,ptl,&neardist,tmpindx,
-				dist2, mass);
+	}
+	else { // a hacked version precopying the neighbor from the linked list
+		LinkedListGrid *linkedListGrid = (LinkedListGrid*)Malloc(sizeof(LinkedListGrid)
+				*ncells, PPTR(linkedListGrid));
+		for(i=0;i<ncells;i++) {
+			linkedListGrid[i].bp = NULL;
+			linkedListGrid[i].np = 0;
 		}
-        if(res != Numnear){
-            DEBUGPRINT("error occurred %d %d : %d\n", res, Numnear, np);
-            exit(99);
-        }
-        for(j=0;j<res;j++){
-            nearindex[k+j] = tmpindx[j];
-        }
+		for(i=0;i<np;i++){
+			long ir = rint((bp[i].x-xmin)/cellsize);
+			long jr = rint((bp[i].y-ymin)/cellsize);
+			long kr = rint((bp[i].z-zmin)/cellsize);
+			long ioff = ir+mx*(jr+ny*kr);
+			SimpleBasicParticleType *tmp = linkedListGrid[ioff].bp;
+			linkedListGrid[ioff].bp = bp+i;
+			linkedListGrid[ioff].np ++;
+			bp[i].bp = tmp;
+		}
+		int nthreads=1;
+#ifdef _OPENMP
+#pragma omp parallel
+		{
+			int it = omp_get_thread_num();
+			if(it ==0) nthreads = omp_get_num_threads();
+		}
+		Neighbor *tneighbor = (Neighbor*)Malloc(sizeof(Neighbor)*nthreads*NUMNEIGHBOR,PPTR(tneighbor));
+#endif
+		DEBUGPRINT0("After building LinkedList\n");
+		int npneigh=0;
+		long ioff;
+#pragma omp parallel for private(ioff,i,j,k) firstprivate(npneigh) schedule(guided) num_threads(nthreads)
+		for(ioff=0;ioff<ncells;ioff++){
+			int tmpindx[NUMNEIGHBOR];
+			Neighbor *neighbor = tneighbor + omp_get_thread_num()*NUMNEIGHBOR;
+			if(linkedListGrid[ioff].np>0){
+				SimpleBasicParticleType *tmp = linkedListGrid[ioff].bp;
+				while(tmp){
+					int ibp = tmp-bp;
+					particle pp;
+					pp.x = tmp->x;
+					pp.y = tmp->y;
+					pp.z = tmp->z;
+					for(i=0;i<npneigh;i++){ // update neighbor.dist2 for tmp
+						long id = neighbor[i].indx;
+						dptype tmpx = pp.x-bp[id].x;
+						dptype tmpy = pp.y-bp[id].y;
+						dptype tmpz = pp.z-bp[id].z;
+						dptype dist2 = tmpx*tmpx+tmpy*tmpy+tmpz*tmpz;
+						neighbor[i].dist2 = dist2;
+					}
+					if(npneigh) qsort(neighbor, npneigh, sizeof(Neighbor), sortneighdist2);
+        			int npneigh = Find_Near_PreCopied(&pp,Numnear,TREE,ptl,tmpindx, neighbor, npneigh);
+					if(npneigh != Numnear){ 
+						DEBUGPRINT("error occurred %d %d : %d\n", npneigh, Numnear, np); 
+						exit(99); 
+					} 
+					k = ibp*Numnear;
+					for(j=0;j<npneigh;j++){ 
+						nearindex[k+j] = tmpindx[j]; 
+					}
+					tmp = tmp->bp;
+				}
+			}
+		}
+		Free(tneighbor);
+		Free(linkedListGrid);
     }
 
 	Free(TREE);
