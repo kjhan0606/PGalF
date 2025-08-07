@@ -290,6 +290,61 @@ typedef struct nearestneighbor{
 	maxdist = sqrtf(maxdist2);\
 }while(0)
 
+int Find_Near_test(
+		particle *point, 
+		int Num_neighbor, 
+		TStruct *tree, 
+		TPtlStruct *ptl, 
+		float *maxr, 
+		int *nearindx,
+		dptype *DIST2,
+		float *MASS, 
+		float *densph
+		){
+	int i,j,k;
+	dptype dist2, tmpx,tmpy,tmpz;
+	dptype maxdist, maxdist2;
+	void *ptr;
+	int npneigh=0;
+	Neighbor neighbor[MAX_NUM_NEAR]={0};
+	maxdist = maxdist2 = 1.E23;
+	ptr = (void*)tree;
+	while(ptr != NULL){
+		switch( ((TYPE*)ptr)->type) {
+			case TYPE_TREE:
+				switch( near_open(point, ptr, npneigh, maxdist, Num_neighbor)){
+					case YES:
+						ptr = (void *)(((TStruct*)ptr)->daughter);
+						break;
+					default:
+						ptr = (void *)(((TStruct*)ptr)->sibling);
+				}
+				break;
+			default:
+				tmpx = point->x - ((TPtlStruct *)ptr)->x;
+				tmpy = point->y - ((TPtlStruct *)ptr)->y;
+				tmpz = point->z - ((TPtlStruct *)ptr)->z;
+				dist2 = tmpx*tmpx + tmpy*tmpy + tmpz*tmpz;
+				if(npneigh < Num_neighbor || dist2<maxdist2){
+					INSERT(dist2, maxdist, maxdist2, npneigh, neighbor);
+					DEBUGPRINT("xyz= %g %g %g / xyz= %g %g %g with id= %ld\n",
+							point->x,point->y,
+							point->z,((TPtlStruct *)ptr)->x,((TPtlStruct *)ptr)->y,
+							((TPtlStruct *)ptr)->z,
+							( (TPtlStruct*)ptr)-ptl);
+				}
+				ptr = (void *) (((TPtlStruct*)ptr)->sibling);
+		}
+	}
+	*maxr = maxdist;
+	for(i=0;i<npneigh;i++) {
+		nearindx[i] = neighbor[i].indx;
+		DIST2[i] = neighbor[i].dist2;
+		MASS[i] = neighbor[i].mass;
+		DEBUGPRINT("final detection %d nearindx: %d dist2= %g den= %g\n", i, nearindx[i], DIST2[i], densph[nearindx[i]]);
+	}
+	return npneigh;
+}
 
 int Find_Near(
 		particle *point, 
@@ -339,6 +394,9 @@ int Find_Near(
 	}
 	return npneigh;
 }
+
+
+
 int nearConstOpen(particle *point, TStruct *tree, dptype constR){
 	dptype tmpx = point->x - tree->monox;
 	dptype tmpy = point->y - tree->monoy; 
@@ -482,7 +540,7 @@ void findsphdensity(SimpleBasicParticleType *bp,int np,int *nearindex, int Numne
     dptype *dist2;
 	float *mass;
     float fplmf,ptlmass;
-    size_t i,j,k;
+    long i,j,k;
     int N,M;
     TPtlStruct *ptl;
     TStruct *TREE;
@@ -554,7 +612,7 @@ void starfindsphdensity(SimpleBasicParticleType *bp,int np,int *nearindex, int N
     dptype *dist2;
 	float *mass;
     float fplmf,ptlmass;
-    size_t i,j,k;
+    long i,j,k;
     int N,M;
     TPtlStruct *ptl;
     TStruct *TREE;
@@ -670,7 +728,7 @@ void findStellarCore(
     int ntmp;
     float tmpx,tmpy,tmpz;
     float fplmf,ptlmass;
-    size_t i,j,k;
+    long i,j,k;
     int N,M;
     TPtlStruct *ptl;
     TStruct *TREE;
@@ -887,7 +945,8 @@ void findStellarCore(
 }
 
 void lagFindStellarCore(
-		SimpleBasicParticleType *bp,int np,
+		SimpleBasicParticleType *bp,
+		int np,
 		int Numnear,
         float *densph,
 		Coretype **Core,
@@ -1138,7 +1197,7 @@ void lagFindStellarCore(
 
 	DEBUGPRINT("The number of cores : %d and after MergingPeak\n", numcore);
 
-	nearindex = *Nearindex = Realloc(*Nearindex, sizeof(int)*np*Numnear);
+	nearindex = *Nearindex = Realloc(*Nearindex, sizeof(int)*(long)np*Numnear);
     p = (particle *) Malloc(sizeof(particle)*np,PPTR(p));
 #pragma omp parallel for 
     for(i=0;i<np;i++){
@@ -1154,14 +1213,14 @@ void lagFindStellarCore(
 		ptl[i].y = bp[i].y; 
 		ptl[i].z = bp[i].z; 
 		ptl[i].sibling = ptl+(i+1); 
-		ptl[i].mass = bp[i].mass; 
+		ptl[i].mass = 1;
     }
     ptl[np-1].sibling = NULL;
 	nnode = MAX(np/2,65*10000);
     TREE = (TStruct *) Malloc(sizeof(TStruct)*nnode,PPTR(TREE));
 
 //  all to all
-	if(0){
+	if(1){
 		if(nnode > 65*10000) recursiveflag = PTHREAD;
 		else recursiveflag = RECURSIVE;
 		recursiveflag = SERIALIZED;
@@ -1182,8 +1241,14 @@ void lagFindStellarCore(
         dptype dist2[NUMNEIGHBOR];
         float neardist;
         k = i*Numnear;
-        res = Find_Near(p+i,Numnear,TREE,ptl,&neardist,tmpindx,
+		if(i==90999959){
+        	res = Find_Near_test(p+i,Numnear,TREE,ptl,&neardist,tmpindx,
+				dist2, mass, densph);
+		}
+		else {
+        	res = Find_Near(p+i,Numnear,TREE,ptl,&neardist,tmpindx,
 				dist2, mass);
+		}
         if(res != Numnear){
             DEBUGPRINT("error occurred %d %d : %d\n", res, Numnear, np);
             exit(99);

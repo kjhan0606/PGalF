@@ -410,7 +410,7 @@ int  MergingPeak(SimpleBasicParticleType *bp,int np,Coretype *core,int numcore, 
 int finddenpeak(float *den,int numneigh,int *neighbor,int np,
 		Coretype **Core, int jflag, SimpleBasicParticleType *bp){
 	Coretype *core = *Core;
-	int i,j,k;
+	long i,j,k;
 	float *me,*you;
 	int iflag;
 	numcore = 0;
@@ -874,7 +874,7 @@ int DMSmartFinding(SimpleBasicParticleType *bp,int np,Coretype *core,int numcore
  * fulfill the core criterion (> MINCOREMEM) */
 int SmartFinding(SimpleBasicParticleType *bp,int np,Coretype *core,int numcore,
 		int *neighbor,int NumNeighbor){
-	int i,j,k;
+	long i,j,k;
 	int num;
 	int *contactlist;
 	Coresortdentype *score;
@@ -1207,7 +1207,9 @@ recycling:
 			float denthr;
 			int mcontact;
 			int ncontact=0, now;
-			if(i==70) DEBUGPRINT("c%d starts seeking the core density %g %g %g : p%d\n", i, upden,downden, denthr, core[i].peak);
+			if(i==70) DEBUGPRINT("c%d starts seeking the core density"
+					"%g %g %g : p%d xyz= %g %g %g\n", 
+					i, upden,downden, denthr, core[i].peak, bp[i].x, bp[i].y, bp[i].z);
 			while(fabs((upden-downden)/downden) > COREDENRESOLUTION){
 				// initialization before a search for the core density 
  				for(j=0;j<ncontact;j++) {
@@ -1232,6 +1234,14 @@ recycling:
 								breakflag = 1;
 								break;
 							}
+						}
+						if(i==70) {
+							DEBUGPRINT("c%d is searching %d'th neighbor: %d den= %g : denthr= %g"
+									"peakden= %g ", i, k,
+									new,wp[new].den, denthr, wp[core[i].peak].den);
+							printf("and its neighbor: %d xyz= %g %g %g\n", new, 
+									bp[new].x, bp[new].y,
+									bp[new].z);
 						}
 						kk ++;
 					}

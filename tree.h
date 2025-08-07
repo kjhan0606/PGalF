@@ -181,6 +181,7 @@ void treeforce(particle*,float, TStruct *,TPtlStruct *,pforce *);
 void Make_Tree(TStruct *,size_t, TPtlStruct *,size_t ,float, int );
 float treeplumpotential(particle*,float, TStruct *,TPtlStruct *);
 TStruct *divide_node(TStruct *,TStruct *, float , int ); 
+BeginEndTree divide_node_Near(TStruct *,TStruct *, TPtlStruct *, Box ,TStruct *); 
 
 typedef struct HaloBound{
 	size_t nmem;

@@ -6,12 +6,12 @@
 #include<math.h>
 #include "ramses.h"
 #include "tree.h"
-#include "near.h"
+//#include "near.h"
 #define MIN(A,B) ((A)<(B) ? (A):(B))
 #define MAX(A,B) ((A)>(B) ? (A):(B))
 void old_Make_Tree_Near(TStruct *TREE_START,TPtlStruct *ptl,int np,Box box){
 	BeginEndTree beginend;
-	int i;
+	long i;
 	TStruct *NewTree;
 	TREE_START->sibling = NULL;
 	for(i=0;i<np;i++) ptl[i].sibling = &ptl[i+1];
@@ -27,9 +27,9 @@ BeginEndTree divide_node_Near(TStruct *TREE_START,TStruct *NewTree,
 	TPtlStruct *p2ptl,*tmpptr,*tmpptr2;
 	Box tmpbox[8];
 	int i,j,k,mnode,mx,my,mz;
-	float x0,y0,z0,inv_halfw,halfw;
-	float tmpx,tmpy,tmpz,tmpdist2,distmax;
-	float ptlmass;
+	dptype x0,y0,z0,inv_halfw,halfw;
+	dptype tmpx,tmpy,tmpz,tmpdist2,distmax;
+	dptype ptlmass;
 	int count;
 
 	/*   */
