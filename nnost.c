@@ -290,14 +290,24 @@ typedef struct nearestneighbor{
 	maxdist = sqrtf(maxdist2);\
 }while(0)
 
+int sortneighdist2(const void *a, const void *b){
+	Neighbor *aa = (Neighbor*)a;
+	Neighbor *bb = (Neighbor*)b;
+	if(aa->dist2 < bb->dist2) return -1;
+	else if(aa->dist2 > bb->dist2) return 1;
+	else return 0;
+}
+
 #define INSERT_PreCopied(dist2, maxdist, maxdist2, npneigh, neighbor) do{\
 	for(i=0;i<npneigh;i++) {\
-		if(neighbor[i].dist2>=dist2) break;\
+		if(neighbor[i].dist2>dist2) break;\
+		else if(neighbor[i].indx == ((TPtlStruct*)ptr)-ptl) break;\
 	}\
-	if(neighbor[i].indx != ( (TPtlStruct*)ptr)-ptl){\
+	size_t ioffset = ( (TPtlStruct*)ptr)-ptl;\
+	if(neighbor[i].indx != ioffset){\
 		for(j=npneigh-1;j>=i;j--) neighbor[j+1] = neighbor[j];\
 		neighbor[i].dist2 = dist2;\
-		neighbor[i].indx = ( (TPtlStruct*)ptr)-ptl;\
+		neighbor[i].indx = ioffset;\
 		npneigh ++;\
 		npneigh=MIN(Num_neighbor,npneigh);\
 		maxdist2 = (neighbor[npneigh-1].dist2);\
@@ -306,13 +316,6 @@ typedef struct nearestneighbor{
 }while(0)
 
 
-int sortneighdist2(const void *a, const void *b){
-	Neighbor *aa = (Neighbor*)a;
-	Neighbor *bb = (Neighbor*)b;
-	if(aa->dist2 < bb->dist2) return -1;
-	else if(aa->dist2 > bb->dist2) return 1;
-	else return 0;
-}
 
 int Find_Near_PreCopied(
 		particle *point, 
@@ -327,8 +330,14 @@ int Find_Near_PreCopied(
 	dptype dist2, tmpx,tmpy,tmpz;
 	void *ptr;
 	ptr = (void*)tree;
-	dptype maxdist2 = neighbor[npneigh-1].dist2;
-	dptype maxdist = sqrt(maxdist2);
+	dptype maxdist2, maxdist;
+	if(npneigh==0) {
+		maxdist2 = maxdist = 1.e20;
+	}
+	else{
+		maxdist2 = neighbor[npneigh-1].dist2;
+		maxdist = sqrt(maxdist2);
+	}
 	while(ptr != NULL){
 		switch( ((TYPE*)ptr)->type) {
 			case TYPE_TREE:
