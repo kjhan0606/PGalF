@@ -280,7 +280,9 @@ typedef struct nearestneighbor{
 
 #define INSERT(dist2, maxdist, maxdist2, npneigh, neighbor) do{\
 	for(i=0;i<npneigh;i++) if(neighbor[i].dist2>dist2) break;\
-	for(j=npneigh-1;j>=i;j--) neighbor[j+1] = neighbor[j];\
+	for(j=MIN(Num_neighbor,npneigh-1)-1;j>=i;j--) {\
+		neighbor[j+1] = neighbor[j];\
+	}\
 	neighbor[i].dist2 = dist2;\
 	neighbor[i].mass = ( (TPtlStruct*)ptr)->mass;\
 	neighbor[i].indx = ( (TPtlStruct*)ptr)-ptl;\
@@ -298,20 +300,28 @@ int sortneighdist2(const void *a, const void *b){
 	else return 0;
 }
 
-#define INSERT_PreCopied(dist2, maxdist, maxdist2, npneigh, neighbor) do{\
-	for(i=0;i<npneigh;i++) {\
-		if(neighbor[i].dist2>dist2) break;\
-		else if(neighbor[i].indx == ((TPtlStruct*)ptr)-ptl) break;\
+#define INSERT_PreCopied(ptr, dist2, maxdist, maxdist2, npneigh, neighbor) do{\
+	int _iflag = 0;\
+	int _i,_j;\
+	size_t _ioffset = ( (TPtlStruct*)ptr)-ptl;\
+	for(_i=0;_i<npneigh;_i++) {\
+		if(neighbor[_i].indx == _ioffset) {\
+			_iflag = 1;\
+			break;\
+		}\
 	}\
-	size_t ioffset = ( (TPtlStruct*)ptr)-ptl;\
-	if(neighbor[i].indx != ioffset){\
-		for(j=npneigh-1;j>=i;j--) neighbor[j+1] = neighbor[j];\
-		neighbor[i].dist2 = dist2;\
-		neighbor[i].indx = ioffset;\
+	if(_iflag == 0) \
+	{\
+		for(_i=0;_i<npneigh;_i++) if(neighbor[_i].dist2>dist2) break;\
+		for(_j=MIN(npneigh,Num_neighbor-1)-1;_j>=_i;_j--) {\
+			neighbor[_j+1] = neighbor[_j];\
+		}\
+		neighbor[_i].dist2 = dist2;\
+		neighbor[_i].indx = _ioffset;\
 		npneigh ++;\
 		npneigh=MIN(Num_neighbor,npneigh);\
 		maxdist2 = (neighbor[npneigh-1].dist2);\
-		maxdist = sqrtf(maxdist2);\
+		maxdist = sqrt(maxdist2);\
 	}\
 }while(0)
 
@@ -322,7 +332,6 @@ int Find_Near_PreCopied(
 		int Num_neighbor, 
 		TStruct *tree, 
 		TPtlStruct *ptl, 
-		int *nearindx,
 		Neighbor *neighbor,
 		int npneigh
 		){
@@ -355,13 +364,10 @@ int Find_Near_PreCopied(
 				tmpz = point->z - ((TPtlStruct *)ptr)->z;
 				dist2 = tmpx*tmpx + tmpy*tmpy + tmpz*tmpz;
 				if(npneigh < Num_neighbor || dist2<maxdist2){
-					INSERT_PreCopied(dist2, maxdist, maxdist2, npneigh, neighbor);
+					INSERT_PreCopied(ptr, dist2, maxdist, maxdist2, npneigh, neighbor);
 				}
 				ptr = (void *) (((TPtlStruct*)ptr)->sibling);
 		}
-	}
-	for(i=0;i<npneigh;i++) {
-		nearindx[i] = neighbor[i].indx;
 	}
 	return npneigh;
 }
@@ -597,7 +603,9 @@ void findsphdensity(SimpleBasicParticleType *bp,int np,int *nearindex, int Numne
 	new_Make_Tree_Near(TREE,nnode, ptl,np,recursiveflag);
     float mindist;
     mindist = 2.e25;
+#ifdef _OPENMP
 #pragma omp parallel for private(i,j,k) schedule(guided)
+#endif
     for(i=0;i<np;i++){
         int tmpindx[Numnear];
         dptype dist2[Numnear];
@@ -680,7 +688,9 @@ void starfindsphdensity(SimpleBasicParticleType *bp,int np,int *nearindex, int N
     float mindist;
     mindist = 2.e25;
 //    int NumNearDen = NUMNEARDEN;
+#ifdef _OPENMP
 #pragma omp parallel for private(i,j,k) schedule(dynamic)
+#endif
     for(i=0;i<np;i++){
         int res;
         int tmpindx[NUMNEARDEN];
@@ -711,7 +721,9 @@ void starfindsphdensity(SimpleBasicParticleType *bp,int np,int *nearindex, int N
 	TREE = Realloc(TREE, sizeof(TStruct)*nnode);
     new_Make_Tree_Near(TREE,nnode, ptl,np,recursiveflag);
     DEBUGPRINT("before Make_Tree_near2 with np= %d\n", np);
+#ifdef _OPENMP
 #pragma omp parallel for private(i,j,k) schedule(dynamic)
+#endif
     for(i=0;i<np;i++){
         int res;
         int tmpindx[NUMNEIGHBOR];
@@ -797,7 +809,9 @@ void findStellarCore(
     new_Make_Tree_Near(TREE,nnode, ptl,nstar,recursiveflag);
     DEBUGPRINT("after Star_Make_Tree_near for nstar = %d\n",nstar);
 //  all to star
+#ifdef _OPENMP
 #pragma omp parallel for private(i,j) schedule(guided)
+#endif
     for(i=0;i<np;i++){
         int res, icount;
         int tmpindx[NUMNEARDEN];
@@ -843,7 +857,9 @@ void findStellarCore(
 	int numSNeigh = MIN(nstar, NUMSTELLARNEIGHBORS);
 	int *nearindex = *Nearindex = (int*)Malloc(sizeof(int)*numSNeigh*nstar,PPTR(*Nearindex));
 //  star to star
+#ifdef _OPENMP
 #pragma omp parallel for private(i,j,k) schedule(guided)
+#endif
     for(i=0;i<nstar;i++){
         int res;
         int tmpindx[NUMSTELLARNEIGHBORS];
@@ -908,14 +924,18 @@ void findStellarCore(
 
 	nearindex = *Nearindex = Realloc(*Nearindex, sizeof(int)*np*Numnear);
     p = (particle *) Malloc(sizeof(particle)*np,PPTR(p));
+#ifdef _OPENMP
 #pragma omp parallel for 
+#endif
     for(i=0;i<np;i++){
         p[i].x = bp[i].x;
         p[i].y = bp[i].y;
         p[i].z = bp[i].z;
     }
     ptl = (TPtlStruct *)Malloc(sizeof(TPtlStruct)*np,PPTR(ptl));
+#ifdef _OPENMP
 #pragma omp parallel for 
+#endif
     for(i=0;i<np;i++){ 
 		ptl[i].type = TYPE_PTL; 
 		ptl[i].x = bp[i].x; 
@@ -934,7 +954,9 @@ void findStellarCore(
 	recursiveflag = RECURSIVE;
     new_Make_Tree_Near(TREE,nnode, ptl,np,recursiveflag);
     DEBUGPRINT("after All_Make_Tree_near for np = %d\n",np);
+#ifdef _OPENMP
 #pragma omp parallel for private(i,j,k) schedule(guided)
+#endif
     for(i=0;i<np;i++){
 //		DEBUGPRINT("p%d  is now being processed: %d\n", i, recursiveflag);
         int res;
@@ -992,7 +1014,6 @@ void lagFindStellarCore(
     float Rmin,Rmax,size;
     int index;
     int mp;
-	int nstar;
     particle *p;
 
 
@@ -1013,7 +1034,6 @@ void lagFindStellarCore(
 		float RG = Gaussian_Smoothing_Length;
 		int nbuff = NCELLBUFF;
 		float *denGrid;
-		LinkedListGrid *linkedListGrid;
 
 		xmin = ymin = zmin = 1e20;
 		xmax = ymax = zmax = -1e20;
@@ -1069,13 +1089,14 @@ void lagFindStellarCore(
 		}
 
 
-		linkedListGrid = (LinkedListGrid*)Malloc(sizeof(LinkedListGrid)
+		LinkedListGrid *linkedListGrid= (LinkedListGrid*)Malloc(sizeof(LinkedListGrid)
 				*ncells, PPTR(linkedListGrid));
 		for(i=0;i<ncells;i++) {
 			linkedListGrid[i].bp = NULL;
 			linkedListGrid[i].np = 0;
 		}
 		int halfnbuff = NCELLBUFF/2;
+		int nstar = 0;
 		for(i=0;i<np;i++){
 			if(bp[i].type == TYPE_STAR){
 				long ir = rint((bp[i].x-xmin)/cellsize);
@@ -1086,9 +1107,10 @@ void lagFindStellarCore(
 				linkedListGrid[ioff].bp = bp+i;
 				linkedListGrid[ioff].np ++;
 				bp[i].bp = tmp;
+				nstar ++;
 			}
 		}
-		DEBUGPRINT0("After building LinkedList\n");
+		DEBUGPRINT("After building LinkedList with nstar= %d\n", nstar);
 		numcore = 0;
 		int nthreads;
 #ifdef _OPENMP
@@ -1099,7 +1121,7 @@ void lagFindStellarCore(
 #pragma omp master
 #endif
 			{
-				nthreads = omp_get_num_threads();
+				nthreads = Omp_get_num_threads();
 			}
 		}
 		int num_cores[nthreads];
@@ -1108,7 +1130,7 @@ void lagFindStellarCore(
 #pragma omp parallel for private(i,j,k)
 #endif
 		for(k=nbuff/2;k<nz-nbuff/2;k++){
-			int thread_id = omp_get_thread_num();
+			int thread_id = Omp_get_thread_num();
 			for(j=nbuff/2;j<ny-nbuff/2;j++){
 				for(i=nbuff/2;i<nx-nbuff/2;i++){
 					long ioff = i + mx*(long)(j+ny*k);
@@ -1159,7 +1181,7 @@ void lagFindStellarCore(
 #pragma omp parallel for private(i,j,k) firstprivate(numcore)
 #endif
         for(k=nbuff/2;k<nz-nbuff/2;k++){
-            int thread_id = omp_get_thread_num();
+            int thread_id = Omp_get_thread_num();
 			int koff = ioff_cores[thread_id];
             for(j=nbuff/2;j<ny-nbuff/2;j++){
                 for(i=nbuff/2;i<nx-nbuff/2;i++){
@@ -1207,13 +1229,13 @@ void lagFindStellarCore(
 	}
 
 
-	DEBUGPRINT("C70 has peak id= %d  den= %g before merging\n", core[70].peak, core[70].density);
+//	DEBUGPRINT("C70 has peak id= %d  den= %g before merging\n", core[70].peak, core[70].density);
 
 	int MergingPeak(SimpleBasicParticleType *, int, Coretype *, int, int);
 	if(numcore >10) numcore = MergingPeak(bp,np, core, numcore,0);
 	core = *Core = Realloc(*Core, sizeof(Coretype)*numcore);
 
-	DEBUGPRINT("C70 has peak id= %d  den= %g after merging\n", core[70].peak, core[70].density);
+//	DEBUGPRINT("C70 has peak id= %d  den= %g after merging\n", core[70].peak, core[70].density);
 
 
 
@@ -1221,14 +1243,18 @@ void lagFindStellarCore(
 
 	nearindex = *Nearindex = Realloc(*Nearindex, sizeof(int)*(long)np*Numnear);
     p = (particle *) Malloc(sizeof(particle)*np,PPTR(p));
+#ifdef _OPENMP
 #pragma omp parallel for 
+#endif
     for(i=0;i<np;i++){
         p[i].x = bp[i].x;
         p[i].y = bp[i].y;
         p[i].z = bp[i].z;
     }
     ptl = (TPtlStruct *)Malloc(sizeof(TPtlStruct)*np,PPTR(ptl));
+#ifdef _OPENMP
 #pragma omp parallel for 
+#endif
     for(i=0;i<np;i++){ 
 		ptl[i].type = TYPE_PTL; 
 		ptl[i].x = bp[i].x; 
@@ -1256,16 +1282,17 @@ void lagFindStellarCore(
 	}
     DEBUGPRINT("after All_Make_Tree_near for np = %d\n",np);
 	
-	if(np < 1000000){ // an old and slow version
+	if(np < 100000){ // an old and slow version
+#ifdef _OPENMP
 #pragma omp parallel for private(i,j,k) schedule(guided)
+#endif
 	    for(i=0;i<np;i++){ 
-			int res;
             int tmpindx[NUMNEIGHBOR];
             float mass[NUMNEIGHBOR];
             dptype dist2[NUMNEIGHBOR];
             float neardist;
             k = i*Numnear;
-			res = Find_Near(p+i,Numnear,TREE,ptl,&neardist,tmpindx,
+			int res = Find_Near(p+i,Numnear,TREE,ptl,&neardist,tmpindx,
                     dist2, mass);
             if(res != Numnear){
                 DEBUGPRINT("error occurred %d %d : %d\n", res, Numnear, np);
@@ -1290,50 +1317,85 @@ void lagFindStellarCore(
 			long ioff = ir+mx*(jr+ny*kr);
 			SimpleBasicParticleType *tmp = linkedListGrid[ioff].bp;
 			linkedListGrid[ioff].bp = bp+i;
-			linkedListGrid[ioff].np ++;
 			bp[i].bp = tmp;
+			linkedListGrid[ioff].np ++;
 		}
 		int nthreads=1;
 #ifdef _OPENMP
 #pragma omp parallel
 		{
-			int it = omp_get_thread_num();
-			if(it ==0) nthreads = omp_get_num_threads();
+			int it = Omp_get_thread_num();
+			if(it ==0) nthreads = Omp_get_num_threads();
 		}
-		Neighbor *tneighbor = (Neighbor*)Malloc(sizeof(Neighbor)*nthreads*NUMNEIGHBOR,PPTR(tneighbor));
 #endif
-		DEBUGPRINT0("After building LinkedList\n");
+		Neighbor *tneighbor = (Neighbor*)Malloc(sizeof(Neighbor)*nthreads*(NUMNEIGHBOR),PPTR(tneighbor));
 		int npneigh=0;
 		long ioff;
-#pragma omp parallel for private(ioff,i,j,k) firstprivate(npneigh) schedule(guided) num_threads(nthreads)
+		int nchunk = ncells/nthreads/mx;
+		nchunk = MAX(1, nchunk);
+		nchunk = MIN(128, nchunk);
+
+		DEBUGPRINT("nthreads= %d nchunk = %d\n",nthreads, nchunk);
+
+#ifdef _OPENMP
+#pragma omp parallel for private(ioff,i,j,k) firstprivate(npneigh) schedule(dynamic,nchunk) num_threads(nthreads)
+#endif
 		for(ioff=0;ioff<ncells;ioff++){
-			int tmpindx[NUMNEIGHBOR];
-			Neighbor *neighbor = tneighbor + omp_get_thread_num()*NUMNEIGHBOR;
+			Neighbor *neighbor = tneighbor + Omp_get_thread_num()*(NUMNEIGHBOR);
 			if(linkedListGrid[ioff].np>0){
 				SimpleBasicParticleType *tmp = linkedListGrid[ioff].bp;
+				// arrange templete from the linked list
+				int inext = 0;
+				while(tmp) {
+					long indx = tmp-bp;
+					int ialready = -1;
+					for(j=0;j<npneigh;j++){
+						if(neighbor[j].indx == indx){
+							ialready = j;
+							break;
+						}
+					}
+					if(ialready ==-1) {
+						neighbor[inext].indx = indx;
+					}
+					else {
+						neighbor[inext].indx = neighbor[ialready].indx;
+						neighbor[ialready].indx = neighbor[npneigh-1].indx;
+						npneigh --;
+					}
+					inext ++;
+					if(inext == Numnear) break;
+					tmp = tmp->bp;
+				}
+				npneigh = MAX(inext,npneigh);
+				// do the k-nearest finding
+				tmp = linkedListGrid[ioff].bp;
 				while(tmp){
-					int ibp = tmp-bp;
+					long ibp = tmp-bp;
 					particle pp;
 					pp.x = tmp->x;
 					pp.y = tmp->y;
 					pp.z = tmp->z;
 					for(i=0;i<npneigh;i++){ // update neighbor.dist2 for tmp
-						long id = neighbor[i].indx;
-						dptype tmpx = pp.x-bp[id].x;
-						dptype tmpy = pp.y-bp[id].y;
-						dptype tmpz = pp.z-bp[id].z;
+						long indx = neighbor[i].indx;
+						dptype tmpx = pp.x-bp[indx].x;
+						dptype tmpy = pp.y-bp[indx].y;
+						dptype tmpz = pp.z-bp[indx].z;
 						dptype dist2 = tmpx*tmpx+tmpy*tmpy+tmpz*tmpz;
 						neighbor[i].dist2 = dist2;
 					}
 					if(npneigh) qsort(neighbor, npneigh, sizeof(Neighbor), sortneighdist2);
-        			int npneigh = Find_Near_PreCopied(&pp,Numnear,TREE,ptl,tmpindx, neighbor, npneigh);
+
+
+        			npneigh = Find_Near_PreCopied(&pp,Numnear,TREE,ptl, neighbor, npneigh);
 					if(npneigh != Numnear){ 
-						DEBUGPRINT("error occurred %d %d : %d\n", npneigh, Numnear, np); 
+						DEBUGPRINT("error occurred %d %d : %d && ioff= %ld\n", 
+								npneigh, Numnear, np, ioff); 
 						exit(99); 
 					} 
 					k = ibp*Numnear;
 					for(j=0;j<npneigh;j++){ 
-						nearindex[k+j] = tmpindx[j]; 
+						nearindex[k+j] = neighbor[j].indx; 
 					}
 					tmp = tmp->bp;
 				}
@@ -1346,6 +1408,8 @@ void lagFindStellarCore(
 	Free(TREE);
 	Free(ptl);
 	Free(p);
+
+	DEBUGPRINT0("making nearbor list is completed\n");
 
 
 	*NumCore = numcore;

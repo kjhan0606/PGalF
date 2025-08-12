@@ -367,8 +367,7 @@ int main(int argc, char *argv[]) {
 				size_t soffset = ftell(fp);
 				FREAD(sbp,&haloq,fp, omep);
 				numhalo ++;
-				if(numhalo%1000==0) 
-					printf("Now passing through %d:   %d for snp= %ld offsets= %ldL %ldL\n",numhalo, snend, snp, qoffset, soffset);
+//				if(numhalo%1000==0) printf("Now passing through %d:   %d for snp= %ld offsets= %ldL %ldL\n",numhalo, snend, snp, qoffset, soffset);
 				/*
 				if(snp > 5 && snp > 100000 && numhalo > 1278000) 
 				if(snp > 5 && snp > 1000000) ===> fails

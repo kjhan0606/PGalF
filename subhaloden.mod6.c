@@ -349,7 +349,9 @@ int  MergingPeak(SimpleBasicParticleType *bp,int np,Coretype *core,int numcore, 
 		qsort(core,numcore,sizeof(Coretype),sortcorenumstar);
 	}
 
+#ifdef _OPENMP
 #pragma omp parallel for
+#endif
 	for(i=0;i<numcore;i++){
 		ptl[i].type = TYPE_PTL;
 		ptl[i].x = bp[core[i].peak].x;
@@ -481,6 +483,7 @@ int finddenpeak(float *den,int numneigh,int *neighbor,int np,
 	}
 	DEBUGPRINT0("Now before merging peak\n");
 //	if(numcore > 10) numcore = MergingPeak(bp,np,core,numcore,0);
+	numcore = MergingPeak(bp,np,core,numcore,0);
 	DEBUGPRINT0("Now after merging peak\n");
 	return numcore;
 }
@@ -1239,7 +1242,7 @@ recycling:
 							DEBUGPRINT("c%d is searching %d'th neighbor: %d den= %g : denthr= %g"
 									"peakden= %g ", i, k,
 									new,wp[new].den, denthr, wp[core[i].peak].den);
-							printf("and its neighbor: %d xyz= %g %g %g\n", new, 
+							DEBUGPRINT("and its neighbor: %d xyz= %g %g %g\n", new, 
 									bp[new].x, bp[new].y,
 									bp[new].z);
 						}
@@ -1394,7 +1397,9 @@ void Self_Halo_Potent(int np,Vector3d *r,float *mass,float *penergy){
 			Mvir += mass[i];
 		}
 		double halobgpotent= GetBGpotent(Mvir);
+#ifdef _OPENMP
 #pragma omp parallel for private(i,j)
+#endif
 		for(i=0;i<np;i++){
 			float potent = 0;
 			for(j=0;j<np;j++){
@@ -1427,7 +1432,9 @@ void Self_Halo_Potent(int np,Vector3d *r,float *mass,float *penergy){
 		else recursiveflag = RECURSIVE;
 
 		Make_Tree(TREE,nnode,ptl,np,theta2,recursiveflag);
+#ifdef _OPENMP
 #pragma omp parallel for private(i,p)
+#endif
 		for(i=0;i<np;i++){ 
 			p.x = ptl[i].x; p.y = ptl[i].y; p.z = ptl[i].z; 
 			penergy[i] = treeplumpotential(&p,theta2,TREE,ptl)*potentfact + halobgpotent; 
@@ -1452,7 +1459,9 @@ void External_Halo_Potent(int nend,Vector3d *r,float *mass, float *penergy, int 
 		}
 		double halobgpotent= GetBGpotent(Mvir);
 		if(nend >= MAXTHREADS){
+#ifdef _OPENMP
 #pragma omp parallel for private(i,j)
+#endif
 			for(i=0;i<nend;i++){
 				float potent = 0;
 				for(j=0;j<snp;j++){
@@ -1468,7 +1477,9 @@ void External_Halo_Potent(int nend,Vector3d *r,float *mass, float *penergy, int 
 		}
 		else {
 			for(i=0;i<nend;i++) penergy[i] = 0;
+#ifdef _OPENMP
 #pragma omp parallel for private(i,j) reduction(+:penergy[:nend])
+#endif
 			for(j=0;j<snp;j++){
 				float ptlmass = smass[j];
 				for(i=0;i<nend;i++){
@@ -1502,7 +1513,9 @@ void External_Halo_Potent(int nend,Vector3d *r,float *mass, float *penergy, int 
 		if(nnode > 65*10000) recursiveflag = PTHREAD;
 		else recursiveflag = RECURSIVE;
 		Make_Tree(TREE,nnode,ptl,snp,theta2,recursiveflag);
+#ifdef _OPENMP
 #pragma omp parallel for private(i,p)
+#endif
 		for(i=0;i<nend;i++){ 
 			p.x = r[i].x; p.y = r[i].y; p.z = r[i].z; 
 			penergy[i] = treeplumpotential(&p,theta2,TREE,ptl)*potentfact + halobgpotent; 
@@ -1565,7 +1578,9 @@ int CheckExternalTE(Kptype *tkp,int tnp,unsigned char *bndflag,
 
 	sr = (Vector3d*)Malloc(sizeof(Vector3d)*snp,PPTR(sr));
 	float *smass = (float*)Malloc(sizeof(float)*snp,PPTR(smass));
+#ifdef _OPENMP
 #pragma omp parallel for private(i)
+#endif
 	for(i=0;i<snp;i++){
 		sr[i].x = skp[i].x; sr[i].y = skp[i].y; sr[i].z = skp[i].z;
 		smass[i] = skp[i].mass;
@@ -2025,7 +2040,9 @@ void UnboundShellP2Rest(int ishell,SimpleBasicParticleType *bp){
 }
 void PDumpKPfromBP(Kptype *kp, int *list, int nlist,SimpleBasicParticleType *bp){
 	int ii;
+#ifdef _OPENMP
 #pragma omp parallel for private(ii) schedule(guided)
+#endif
 	for(ii=0;ii<nlist;ii++){
 		kp[ii].x = bp[list[ii]].x;
 		kp[ii].y = bp[list[ii]].y;
@@ -2106,11 +2123,15 @@ void ompEnabledMemberFoF(SimpleBasicParticleType *bp, int np, int numcore,
 			}
 			continue;
 		}
+#ifdef _OPENMP
 #pragma omp parallel for schedule(dynamic)
+#endif
 		for(int ii=0; ii < num;ii++){
 			for(int jj=ii+1;jj<num;jj++){
 				if(withinFoFRange(ptl,ii,jj)){
+#ifdef _OPENMP
 #pragma omp critical
+#endif
 					{
 						uniteFoF(ptl, ii, jj);
 					}
@@ -2645,6 +2666,12 @@ int subhalo_den(FoFTPtlStruct *rbp, lint np,lint *p2halo){
 			numcore = finddenpeak(density,NumNeighbor,neighbor,np,&core,0,bp);
 		}
 		else {
+	if(0){
+		int iii=1;
+		while(iii) {
+			iii = iii;
+		}
+	}
 			neighbor = (int*)Malloc(sizeof(int)*np*NumNeighbor,PPTR(neighbor));
 			density = (float*)Malloc(sizeof(float)*np,PPTR(density));
 			core = (Coretype*)Malloc(sizeof(Coretype)*maxnumcore,PPTR(core));

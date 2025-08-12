@@ -22,10 +22,19 @@
 #define RINT(a) rintf(a)
 #endif
 
+int nullfct0();
+int nullfct1();
+
+
+
 #ifndef _OPENMP
-#define omp_get_thread_num() nullfct0()
-#define omp_get_num_threads() nullfct1()
+#define Omp_get_thread_num() nullfct0()
+#define Omp_get_num_threads() nullfct1()
+#else
+#define Omp_get_thread_num() omp_get_thread_num()
+#define Omp_get_num_threads() omp_get_num_threads()
 #endif
+
 
 
 void findDen(SimpleBasicParticleType *bp,int np, float *densph, double xmin, double ymin, 
@@ -196,7 +205,7 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 
 	int nxyz = ( (nx>ny) ? nx: ny);
 	nxyz =  ( (nxyz > nz) ? nxyz: nz);
-	int nthreads, mthreads;
+	int nthreads=1, mthreads;
 	double hwidth,xwidth;
 #ifdef _OPENMP
 #pragma omp parallel shared(nthreads)
@@ -204,10 +213,10 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 	{
 #ifdef _OPENMP
 #pragma omp master
-#endif
 		{
-			nthreads = omp_get_num_threads();
+			nthreads = Omp_get_num_threads();
 		}
+#endif
 	}
 	xwidth = (double)nxyz/(double)nthreads;
 	hwidth = 0.5*xwidth;
@@ -220,6 +229,10 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 
 //	if(myid==0) printf("Now in the OMP tsc with thread= %d\n", mthreads);
 	signed char *target = (signed char*)Malloc(sizeof(short)*np, PPTR(target));
+	{
+		long i;
+		for(i=0;i<np;i++) target[i] = 1;
+	}
 #ifdef _OPENMP
 	{
 		double Xwidth = (double)nxyz/(double)mthreads;
@@ -263,7 +276,7 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 #endif
 #endif
 	{
-		int idthread = omp_get_thread_num() + 1;
+		int idthread = Omp_get_thread_num() + 1;
 		long long i;
 		for(i=0;i<np;i++){
 			if(bp[i].type != TYPE_STAR) continue;
@@ -376,9 +389,10 @@ void assign_density_TSC(SimpleBasicParticleType *bp, int np, float *den,
 #endif
 #endif
 	{
-		int idthread = omp_get_thread_num()+1;
+		int idthread = Omp_get_thread_num()+1;
 		long long i;
 		for(i=0;i<np;i++){
+			if(bp[i].type != TYPE_STAR) continue;
 			if(target[i] != idthread) continue;
 #ifdef XYZDBL
 			double xp,yp,zp;

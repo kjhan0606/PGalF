@@ -19,8 +19,8 @@ extern float diff[NSPLINE][3],slope[NSPLINE][3],ran2nran;
 
 
 #define nodesize dist
-int nullfct0();
-int nullfct1();
+int nullfct0() { return 0;}
+int nullfct1() { return 1;}
 #ifndef _OPENMP
 #define Omp_get_thread_num() nullfct0()
 #define Omp_get_num_threads() nullfct1()
@@ -513,8 +513,8 @@ void Make_Tree(
 #pragma omp parallel
 #endif
         {
-            int pid = omp_get_thread_num();
-            int npid = omp_get_num_threads();
+            int pid = Omp_get_thread_num();
+            int npid = Omp_get_num_threads();
             size_t mys, myf;
             size_t worksize = (twork + npid - 1)/npid;
             size_t j;
