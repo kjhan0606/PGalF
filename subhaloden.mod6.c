@@ -1210,9 +1210,6 @@ recycling:
 			float denthr;
 			int mcontact;
 			int ncontact=0, now;
-			if(i==70) DEBUGPRINT("c%d starts seeking the core density"
-					"%g %g %g : p%d xyz= %g %g %g\n", 
-					i, upden,downden, denthr, core[i].peak, bp[i].x, bp[i].y, bp[i].z);
 			while(fabs((upden-downden)/downden) > COREDENRESOLUTION){
 				// initialization before a search for the core density 
  				for(j=0;j<ncontact;j++) {
@@ -1238,19 +1235,10 @@ recycling:
 								break;
 							}
 						}
-						if(i==70) {
-							DEBUGPRINT("c%d is searching %d'th neighbor: %d den= %g : denthr= %g"
-									"peakden= %g ", i, k,
-									new,wp[new].den, denthr, wp[core[i].peak].den);
-							DEBUGPRINT("and its neighbor: %d xyz= %g %g %g\n", new, 
-									bp[new].x, bp[new].y,
-									bp[new].z);
-						}
 						kk ++;
 					}
 					now++;
 				}
-				if(i==70) DEBUGPRINT("c%d is seeking the core density %g %g %g: found np= %d\n", i, upden,downden, denthr, ncontact);
 				if(breakflag==0) upden = denthr;
 			}
 			core[i].coredensity = (denthr = upden);

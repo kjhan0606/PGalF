@@ -125,6 +125,7 @@ void findDen(SimpleBasicParticleType *bp,int np, float *densph, double xmin, dou
 
 
 		densph[i] = density;
+		/*
 		if(i == 90999959) {
 			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i1,j1,k1) , wx1wy1*wz1);
 			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i2,j1,k1) , wx2wy1*wz1);
@@ -155,9 +156,10 @@ void findDen(SimpleBasicParticleType *bp,int np, float *densph, double xmin, dou
 			DEBUGPRINT("p%d has density+ = %g %g\n",i,den(i3,j3,k3) , wx3wy3*wz3);
 			DEBUGPRINT("p%d has final density %g\n", i, density);
 		}
+		*/
 
 	}
-	DEBUGPRINT0("Now exit the density-interpolation Job\n");
+//	DEBUGPRINT0("Now exit the density-interpolation Job\n");
 }
 
 

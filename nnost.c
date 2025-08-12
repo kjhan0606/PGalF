@@ -1333,7 +1333,7 @@ void lagFindStellarCore(
 		long ioff;
 		int nchunk = ncells/nthreads/mx;
 		nchunk = MAX(1, nchunk);
-		nchunk = MIN(128, nchunk);
+		nchunk = MIN(32, nchunk);
 
 		DEBUGPRINT("nthreads= %d nchunk = %d\n",nthreads, nchunk);
 

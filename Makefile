@@ -22,7 +22,7 @@ $(PROGS): $(OBJS)
 AR = ar  rcv
 RANLIB = ranlib
 FFTW = /home/kjhan/local/
-OPT = -g  -qopenmp -DINDEX -DVarPM   -DXYZDBL -DNENER=0 -DNPRE=8 -DREAD_SINK -DNCHEM=9 \
+OPT = -O3  -qopenmp -DINDEX -DVarPM   -DXYZDBL -DNENER=0 -DNPRE=8 -DREAD_SINK -DNCHEM=9 \
 		-DNDUST=4  -DDEBUG -DADV 
 
 INCLUDES = -I$(FFTW)/include
