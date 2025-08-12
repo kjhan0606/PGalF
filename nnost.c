@@ -1074,7 +1074,7 @@ void lagFindStellarCore(
 			void gaussian_Smoothing(float *,int ,int ,int , double , float );
 			gaussian_Smoothing(denGrid,nx,ny,nz, cellsize, RG);
 		}
-		if(1){
+		if(0){
 			FILE *wp = fopen("gS.denmap.out","w");
 			fwrite(&mx, sizeof(int), 1, wp);
 			fwrite(&ny, sizeof(int), 1, wp);
