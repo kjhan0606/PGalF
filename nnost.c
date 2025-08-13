@@ -1333,7 +1333,7 @@ void lagFindStellarCore(
 		long ioff;
 		int nchunk = ncells/nthreads/mx;
 		nchunk = MAX(1, nchunk);
-		nchunk = MIN(32, nchunk);
+		nchunk = MIN(1, nchunk);
 
 		DEBUGPRINT("nthreads= %d nchunk = %d\n",nthreads, nchunk);
 
@@ -1341,8 +1341,9 @@ void lagFindStellarCore(
 #pragma omp parallel for private(ioff,i,j,k) firstprivate(npneigh) schedule(dynamic,nchunk) num_threads(nthreads)
 #endif
 		for(ioff=0;ioff<ncells;ioff++){
-			Neighbor *neighbor = tneighbor + Omp_get_thread_num()*(NUMNEIGHBOR);
-			if(linkedListGrid[ioff].np>0){
+			int threadID = Omp_get_thread_num();
+			Neighbor *neighbor = tneighbor + threadID*(NUMNEIGHBOR);
+			if(linkedListGrid[ioff].np>0 && linkedListGrid[ioff].np < DEEPSIZE){
 				SimpleBasicParticleType *tmp = linkedListGrid[ioff].bp;
 				// arrange templete from the linked list
 				int inext = 0;
@@ -1401,6 +1402,76 @@ void lagFindStellarCore(
 				}
 			}
 		}
+
+		DEBUGPRINT0("shallow linked list part is done\n");
+
+
+		for(ioff=0;ioff<ncells;ioff++){
+			if(linkedListGrid[ioff].np>=DEEPSIZE) {// for a deeper linked list. 
+											// This value should be larger than Num_neighbor.
+				{
+					SimpleBasicParticleType *tmp = linkedListGrid[ioff].bp;
+					// arrange templete from the linked list
+					int inext = 0;
+					while(tmp && inext < Numnear) {
+						long indx = tmp-bp;
+						tneighbor[inext].indx = indx;
+						tmp = tmp->bp;
+					}
+					npneigh = inext;
+					for(i=1;i<nthreads;i++){
+						for(j=0;j<npneigh;j++){
+							tneighbor[i*NUMNEIGHBOR+j] = tneighbor[j];
+						}
+					}
+				}
+				// do the k-nearest finding
+#ifdef _OPENMP
+#pragma omp parallel firstprivate(npneigh)  private(i,j,k)
+#endif
+				{
+					int threadID = Omp_get_thread_num();
+					Neighbor *neighbor = tneighbor + threadID*(NUMNEIGHBOR);
+					int icount=0;
+					SimpleBasicParticleType *tmp = linkedListGrid[ioff].bp;
+					while(tmp){
+						if(icount%nthreads == threadID) {
+							long ibp = tmp-bp;
+							particle pp;
+							pp.x = tmp->x;
+							pp.y = tmp->y;
+							pp.z = tmp->z;
+							for(i=0;i<npneigh;i++){ // update neighbor.dist2 for tmp
+								long indx = neighbor[i].indx;
+								dptype tmpx = pp.x-bp[indx].x;
+								dptype tmpy = pp.y-bp[indx].y;
+								dptype tmpz = pp.z-bp[indx].z;
+								dptype dist2 = tmpx*tmpx+tmpy*tmpy+tmpz*tmpz;
+								neighbor[i].dist2 = dist2;
+							}
+							if(npneigh) qsort(neighbor, npneigh, sizeof(Neighbor), sortneighdist2);
+		
+		
+   		   	  				npneigh = Find_Near_PreCopied(&pp,Numnear,TREE,ptl, neighbor, npneigh);
+							if(npneigh != Numnear){ 
+								DEBUGPRINT("error occurred %d %d : %d && ioff= %ld\n", 
+										npneigh, Numnear, np, ioff); 
+								exit(99); 
+							} 
+							k = ibp*Numnear;
+							for(j=0;j<npneigh;j++){ 
+								nearindex[k+j] = neighbor[j].indx; 
+							}
+						}
+						tmp = tmp->bp;
+					}
+				}
+			}
+		}
+
+
+
+
 		Free(tneighbor);
 		Free(linkedListGrid);
     }

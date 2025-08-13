@@ -112,3 +112,14 @@
 // the (even) number of cell buffer. 
 #define NCELLBUFF 10
 //*******************
+//
+//
+//
+//
+//
+// the size of deep linked lists (omp parallelized)
+// if the number of particles linked to a cell is smaller
+// than DEEPSIZE, the omp parallelization is located outside the loop.
+// In the other cases, the omp parallelization goes down the loop.
+#define DEEPSIZE 1024
+//*******************

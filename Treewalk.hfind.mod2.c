@@ -28,7 +28,9 @@ enum boolean fof_open(particle p,FoFTStruct *tree, float fof_link){
     dist = sqrt(dist2);
     diffr = dist - r;
 	link02 = 0.5*(p.link02 + tree->maxlink02);
-    if(diffr <= link02) return YES;
+	float minlink02 =0.5*(p.link02 + tree->minlink02);
+	if(minlink02 > (dist+r)) return ENCLOSE;
+	else if(diffr <= link02) return YES;
     else return NO;
 }
 
@@ -212,6 +214,33 @@ float treeplumpotential(particle *p,float theta2,TStruct *tree,
 	}
 	return potent;
 }
+
+int ScoopUpParticles(void *optr, particle *linked, int oncount){
+	int ncount=oncount;
+	void *ptr = optr;
+	void *terminal = ptr->sibling;
+	while(ptr != terminal){
+		switch(((TYPE*)ptr)->type){
+			case TYPE_TREE:
+				ptr = ((FoFTStruct*)ptr)->daughter;
+				break;
+			default : 
+				FoFTPtlStruct *tmp = (FoFTPtlStruct*)ptr;
+				if(((FoFTPtlStruct*)ptr)->included == NO){
+					linked[ncount].x = tmp->x;
+					linked[ncount].y = tmp->y;
+					linked[ncount].z = tmp->z;
+					linked[ncount].link02 = tmp->link02; 
+					tmp->included = YES; 
+					ncount ++;
+				}
+				ptr = (void*)(tmp->sibling);
+		}
+	}
+	((FoFTStruct *)ptr)->sibling = ((FoFTStruct *)ptr)->daughter;
+	return ncount;
+}
+
 int new_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree,
         FoFTPtlStruct *ptl,particle *linked){
     int ncount, now;
@@ -227,6 +256,10 @@ int new_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree,
             switch(((TYPE*)ptr)->type){
                 case TYPE_TREE:
                     switch(fof_open(point,ptr,fof_link)){
+						case ENCLOSE:
+							ncount = ScoopUpParticles(ptr,linked,ncount);
+							optr = ptr;
+							ptr = (void *)(((FoFTStruct*)ptr)->sibling); 
                         case YES:
                             ptr = (void *)(((FoFTStruct*)ptr)->daughter);
                             break;
@@ -281,6 +314,11 @@ int destroy_new_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree,
 					}
 					else
 					switch(fof_open(point,ptr,fof_link)){ 
+						case ENCLOSE:
+							ncount = ScoopUpParticles(ptr,linked,ncount);
+							optr = ptr;
+							ptr = (void *)(((FoFTStruct*)ptr)->sibling); 
+							break;
 						case YES: 
 							optr = ptr;
 							ptr = (void *)(((FoFTStruct*)ptr)->daughter); 
@@ -378,7 +416,7 @@ FoFBeginEndTree FoF_divide_node(FoFTStruct *TREE_START,FoFTStruct *NewTree,
 	ThisTree->x0 = box.x;
 	ThisTree->y0 = box.y;
 	ThisTree->z0 = box.z;
-	ThisTree->maxlink02 = 0;
+	ThisTree->maxlink02 = ThisTree->minlink02 = 0;
 	ThisTree->Nparticle = 0;
 	ThisTree->monox= ThisTree->monoy= ThisTree->monoz= 0.;
 
@@ -403,6 +441,7 @@ FoFBeginEndTree FoF_divide_node(FoFTStruct *TREE_START,FoFTStruct *NewTree,
 		tmpdist2 = tmpx*tmpx + tmpy*tmpy + tmpz*tmpz;
 		distmax = MAX(distmax,tmpdist2);
 		ThisTree->maxlink02 = MAX(ThisTree->maxlink02,p2ptl->link02);
+		ThisTree->minlink02 = MIN(ThisTree->minlink02,p2ptl->link02);
 		p2ptl = p2ptl->sibling;
 	}
 	ThisTree->dist2 = distmax;

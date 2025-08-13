@@ -304,10 +304,10 @@ typedef struct Coresortdentype{
 }Coresortdentype;
 
 
-#define NSHELL2P(x) (shell[x].nlinkedparticle)
-#define SHELL2P(x) (shell[x].linkedparticle)
-#define NSHELL2C(x) (shell[x].nlinkedcore)
-#define SHELL2C(x) (shell[x].linkedcore)
+#define NSHELL2P(x) (shell[x].nlinkedparticle) // number of particles enclosed by the shell
+#define SHELL2P(x) (shell[x].linkedparticle) // shell to particle linked list
+#define NSHELL2C(x) (shell[x].nlinkedcore) // number of cores enclosed by the shell
+#define SHELL2C(x) (shell[x].linkedcore) // shell to the core's id number
 typedef struct Shelltype{
 	int nlinkedcore;
 	int *linkedcore;
@@ -367,6 +367,7 @@ int  MergingPeak(SimpleBasicParticleType *bp,int np,Coretype *core,int numcore, 
 	int recursiveflag;
 	if(nnode > 65*10000) recursiveflag= PTHREAD;
 	else recursiveflag = RECURSIVE;
+	recursiveflag = SERIALIZED;
 	DEBUGPRINT("Before core merging %d\n", numcore);
 	FoF_Make_Tree(TREE,nnode, ptl,numcore, recursiveflag);
 
@@ -619,10 +620,9 @@ void GetShellParticlesPeaks(int np,int *neighbor,int NumNeighbor,
 	for(j=0;j<np;j++) UNSET_VISITED(j);
 
 	while((nowcore = GET_NONENCLOSED_ID(core,numcore,dthreshold))>=0){
-//		for(j=0;j<np;j++) UNSET_VISITED(j);
 		for(j=0;j<nlist;j++) {
 	 		int jj = contactlist[j];
-			UNSET_VISITED(jj);/* Set all the particle not to be visited */
+			UNSET_VISITED(jj);// unmarking particles (initialization)
 		}
 		now = nlist = 0;
 		SET_VISITED((contactlist[nlist++]= core[nowcore].peak));
@@ -1419,6 +1419,7 @@ void Self_Halo_Potent(int np,Vector3d *r,float *mass,float *penergy){
 		if(nnode > 65*10000) recursiveflag = PTHREAD;
 		else recursiveflag = RECURSIVE;
 
+		recursiveflag = SERIALIZED;
 		Make_Tree(TREE,nnode,ptl,np,theta2,recursiveflag);
 #ifdef _OPENMP
 #pragma omp parallel for private(i,p)
@@ -1500,6 +1501,7 @@ void External_Halo_Potent(int nend,Vector3d *r,float *mass, float *penergy, int 
 		int recursiveflag;
 		if(nnode > 65*10000) recursiveflag = PTHREAD;
 		else recursiveflag = RECURSIVE;
+		recursiveflag = SERIALIZED;
 		Make_Tree(TREE,nnode,ptl,snp,theta2,recursiveflag);
 #ifdef _OPENMP
 #pragma omp parallel for private(i,p)
@@ -2203,7 +2205,7 @@ void MemberStarFoF(SimpleBasicParticleType *bp,int np, int numcore, Coretype *co
 		DEBUGPRINT("C%d is now doing the stellar" 
 				" FoF with num= %d with nnode= %d\n", 
 				i,num,nnode);
-		recursiveflag = RECURSIVE;
+		recursiveflag = SERIALIZED;
 		FoF_Make_Tree(TREE,nnode, ptl,num,recursiveflag);
 
 		p.x = bp[core[i].peak].x;
@@ -2342,7 +2344,7 @@ void MemberFoF(SimpleBasicParticleType *bp,int np, int numcore, Coretype *core){
 			recursiveflag = RECURSIVE;
 		}
 		*/
-		recursiveflag = RECURSIVE;
+		recursiveflag = SERIALIZED;
 		FoF_Make_Tree(TREE,nnode,ptl,num,recursiveflag);
 
 		p.x = bp[core[i].peak].x;
@@ -2776,7 +2778,7 @@ renumcore :
 		nshell = 0;
 		if(np>1000) {
 			nshelldivide = MAX(NSHELLDIVIDE,NSHELLDIVIDE*log10((double)np*1.5));
-			nshelldivide = MIN(100, nshelldivide);
+			nshelldivide = MIN(15, nshelldivide);
 //			nshelldivide = MAX(NSHELLDIVIDE,NSHELLDIVIDE*log10((double)np*2));
 		}
 		else nshelldivide = NSHELLDIVIDE;
@@ -2789,7 +2791,7 @@ renumcore :
 		SaveRemainingParticles2LastShell(np,core,numcore);
 #ifdef DEBUG
 		for(i=0;i<nshell;i++)
-		 printf("S%d has %d particles & %d cores\n",i, NSHELL2P(i),NSHELL2C(i));
+			DEBUGPRINT("S%d has %d particles & %d cores\n",i, NSHELL2P(i),NSHELL2C(i));
 #endif
 		/*
 		goto gogo;
@@ -2814,7 +2816,7 @@ renumcore :
 #ifdef DEBUG
 			for(j=0;j<NSHELL2C(ishell);j++) {
 				k = SCOREID2COREID(j);
-				printf("C%d has nmem=%d\n",k,core[k].nummem);
+				DEBUGPRINT("C%d has nmem=%d\n",k,core[k].nummem);
 			}
 #endif
 			AdGetTidalRCenterCore(core,numcore, score,NSHELL2C(ishell),bp,np);
@@ -2853,20 +2855,15 @@ renumcore :
 					SET_BOUND(bid);
 					UNSET_REMAINING(bid);
 					SET_MEMBER_ID(bid,icore);
-#ifdef DEBUG
-					/*
-					printf("%g %g %g\n",bp[bid].x/4,bp[bid].y/4.,bp[bid].z/4.);
-					*/
-#endif
 				}
 				Free(tkp);Free(skp);
 				Free(slist); Free(tlist);
-#ifdef DEBUG
-				printf("S%d in S%d -- C%d ntarget=%d nsource=%d & finally get nmem = %d\n",
+				DEBUGPRINT("S%d in S%d -- C%d ntarget=%d nsource=%d & finally get nmem = %d\n",
 						ishell,nshell,icore,ntarget,nsource,nmem);
-#endif
 			}
+			DEBUGPRINT0("before dumping unbound particles to the rest\n");
 			UnboundShellP2Rest(ishell,bp);/* Turning on the rest flag for unbound shell particles */
+			DEBUGPRINT0("after dumping unbound particles to the rest\n");
 			Free(score);
 		}
 		if(MINSTELLARMASS>=0) MemberStarFoF(bp,np,numcore,core);

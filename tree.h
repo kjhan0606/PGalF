@@ -23,6 +23,7 @@
 #define SERIALIZED -1
 #define YES 1
 #define NO 0
+#define ENCLOSE 2
 enum where {OUT=0, IN=1, CROSS=2};
 #define divideThisNode(thisNode,nparticles) ((thisNode->nodesize > 0.5*MINCELLWIDTH ? YES:NO) && (nparticles>=MIN_CELL_PARTICLE_NUM ? YES:NO))
 typedef struct FoFPosition {
@@ -102,7 +103,7 @@ typedef struct FoFTStruct{
 	POSTYPE monox,monoy,monoz;
 	int Nparticle;
 	void *daughter;
-	float maxlink02;
+	float maxlink02, minlink02;
 } FoFTStruct;
 typedef struct FoFBeginEndTree{
 	FoFTStruct *start;
