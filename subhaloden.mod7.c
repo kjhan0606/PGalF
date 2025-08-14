@@ -2044,174 +2044,99 @@ void PDumpKPfromBP(Kptype *kp, int *list, int nlist,SimpleBasicParticleType *bp)
 		kp[ii].bp = bp+list[ii];
 	}
 }
-int findUpperLink(ompFoFParticleType *ptl,int i){
-	if(ptl[i].imother != i) ptl[i].imother = findUpperLink(ptl,ptl[i].imother);
-	return ptl[i].imother;
-}
-int withinFoFRange(ompFoFParticleType *ptl, int i,int j){
-	POSTYPE tmpx = ptl[i].x-ptl[j].x;
-	POSTYPE tmpy = ptl[i].y-ptl[j].y;
-	POSTYPE tmpz = ptl[i].z-ptl[j].z;
-	POSTYPE dist = sqrt(tmpx*tmpx + tmpy*tmpy + tmpz*tmpz);
-	if(dist < 0.5*( ptl[i].link02 + ptl[j].link02)){
-		return 1;
-	}
-	else {
-		return 0;
-	}
-	return 0;
-}
-int uniteFoF(ompFoFParticleType *ptl, int i,int j){
-	int root_i = findUpperLink(ptl, i);
-	int root_j = findUpperLink(ptl, j);
-	if(root_i != root_j) {
-		if(root_i < root_j) ptl[root_j].imother = root_i;
-		else ptl[root_i].imother = root_j;
-	}
-}
-
-
-typedef struct ompLinkedList{
-	int bpid;
-	particle p;
-} ompLinkedList;
 
 
 void ompEnabledMemberFoF(SimpleBasicParticleType *bp, int np, int numcore, 
 		Coretype *core, int ptype){
-	FoFTPtlStruct *ptl;
-	FoFTStruct *TREE;
-	particle *linked,p;
-	int i,j,k;
-	int icore;
-	float fof_link = 0.01;
-	ptl = (FoFTPtlStruct*) Malloc(sizeof(FoFTPtlStruct)*np, PPTR(ptl));
-	for(icore=0;icore<numcore;icore++){
-		int num = 0;
-		if(ptype == TYPE_STAR){
-			for(j=0;j<np;j++){
-				if(wp[j].haloid == icore && bp[j].type == TYPE_STAR){
-					ptl[num].x = bp[j].x;
-					ptl[num].y = bp[j].y;
-					ptl[num].z = bp[j].z;
-					ptl[num].link02 = bp[j].link02;
-					ptl[num].indx = j;
-					ptl[num].haloindx = -1;
-					num++;
-				}
-			}
-		}
-		else {
-			for(j=0;j<np;j++){
-				if(wp[j].haloid == icore){
-					ptl[num].x = bp[j].x;
-					ptl[num].y = bp[j].y;
-					ptl[num].z = bp[j].z;
-					ptl[num].link02 = bp[j].link02;
-					ptl[num].indx = j;
-					ptl[num].haloindx = -1;
-					num++;
-				}
-			}
-		}
-		if(num == 0) continue;
+	float fof_link;
+    int i,j,k;
+    int num;
+    FoFTPtlStruct *ptl;
+    FoFTStruct *TREE;
+    particle *linked,p;
+
+    fof_link = 0.01;
+    ptl = (FoFTPtlStruct *) Malloc(sizeof(FoFTPtlStruct)*np,PPTR(ptl));
+    size_t nnode = MAX(65*10000,np);
+    TREE = (FoFTStruct *)Malloc(sizeof(FoFTStruct)*nnode,PPTR(TREE));
+    for(i=0;i<numcore;i++){
+        num = 0;
+        for(j=0;j<np;j++){
+            if(wp[j].haloid==i && bp[j].type == ptype){
+                ptl[num].type = TYPE_PTL;
+                ptl[num].x = bp[j].x;
+                ptl[num].y = bp[j].y;
+                ptl[num].z = bp[j].z;
+                ptl[num].link02 = bp[j].link02;
+                ptl[num].indx = j;
+                ptl[num].sibling = &ptl[num+1];
+                ptl[num].included = NO;
+                ptl[num].haloindx = 0;
+                num++;
+            }
+        }
+        if(num == 0) continue;
         else if(num == 1) {
             for(j=0;j<num;j++){
                 SET_MEMBER_ID(ptl[j].indx,NOT_HALO_MEMBER);
                 UNSET_BOUND(ptl[j].indx);
                 SET_REMAINING(ptl[j].indx);
-			}
-			continue;
-		}
-		size_t nnode = MAX(65*10000,np);
-		TREE = (FoFTStruct *)Malloc(sizeof(FoFTStruct)*nnode,PPTR(TREE));
-		linked = (particle *)Malloc(sizeof(particle)*num,PPTR(linked));
-
-		int nlink, ilink;
-		nlink = 0;
+            }
+            continue;
+        }
+        ptl[num-1].sibling = NULL;
+        DEBUGPRINT("C%d is now doing the stellar"
+                " FoF with num= %d with nnode= %d\n",
+                i,num,nnode);
+        int recursiveflag= SERIALIZED;
+        FoF_Make_Tree(TREE,nnode, ptl,num,recursiveflag);
+		DEBUGPRINT("C%d is now doing the stellar" " FoF with num= %d\n", i,num);
 		int haloindx = 0;
-#ifdef _OPENMP
-#pragma omp parallel private(j,k)
-#endif
 		{
-			int pid = omp_get_thread_num();
-			int nthreads = omp_get_num_threads();
-			int nstep = (num+nthreads-1)/nthreads;
-			int istart = nstep * pid;
-			int iend = nstep *(pid+1);
-			iend = MIN(iend, num);
-			int mynp = (iend-istart);
-			FoFTPtlStruct *myptl = ptl + istart;
-			for(i=0;i<mynp;i++){
-				myptl[i].sibling =  myptl+i+1;
-				myptl[i].included =  NO;
+			for(int ii=0;ii<num;ii++){
+				if(ptl[ii].haloindx ==0){
+					haloindx ++;
+					ptl[ii].haloindx = haloindx;
+				}
+				else {
+					continue;
+				}
+#pragma omp parallel for schedule(dynamic)
+				for(j=ii;j<num;j++){
+					if(ptl[j].haloindx == ptl[ii].haloindx){
+						p.x = ptl[j].x;
+						p.y = ptl[j].y;
+						p.z = ptl[j].z;
+						p.link02 = ptl[j].link02;
+						ilink = fast_new_fof_link(&p,fof_link,TREE,ptl);
+
+						/*
+						for(int l = ii+1;l<num;l++){
+							if(ptl[l].haloindx == 0){
+								double tmpx = ptl[j].x - ptl[l].x;
+								double tmpy = ptl[j].y - ptl[l].y;
+								double tmpz = ptl[j].z - ptl[l].z;
+								double dist = sqrt(tmpx*tmpx+tmpy*tmpy+tmpz*tmpz);
+								double link02 = 0.5*( ptl[j].link02 + ptl[l].link02);
+								if(dist <= link02){
+#pragma omp atomic write
+									ptl[l].haloindx = ptl[ii].haloindx;
+								}
+							}
+						}
+						*/
+					}
+				}
 			}
-			myptl[mynp-1].sibling = NULL;
-			int mynnode = (num+nthreads-1)/nthreads;
-			FoFTStruct *mytree = TREE + mynnode*pid;
-			int recursiveflag = SERIALIZED;
-			FoF_Make_Tree(mytree,mynnode, myptl,mynp,recursiveflag);
 		}
-		DEBUGPRINT0("Making FoF Tree in the parallel mode\n");
-		do {
-			for(j=0;j<num;j++){
-				if(ptl[j].included == NO){
-					linked[0].x = ptl[j].x;
-					linked[0].y = ptl[j].y;
-					linked[0].z = ptl[j].z;
-					linked[0].link02 = ptl[j].link02;
-					ptl[j].included = YES;
-					ptl[j].haloindx = haloindx;
-					nlink = 0; ilink = 1;
-					break;
-				}
-			}
-			if(j==num) break;
-			while(ilink){
-#pragma omp parallel 
-				{
-					int pid = omp_get_thread_num();
-		            int nthreads = omp_get_num_threads();
-					int nstep = (num+nthreads-1)/nthreads;
-					int mynnode = (num+nthreads-1)/nthreads;
-					FoFTStruct *mytree = TREE + mynnode*pid;
-					int istart = nstep * pid;
-					FoFTPtlStruct *myptl = ptl + istart;
-					for(j=nlink;j<nlink+ilink;j++){
-						particle p;
-						p.x = linked[j].x;
-						p.y = linked[j].y;
-						p.z = linked[j].z;
-						p.link02 = linked[j].link02;
-						destroy_omp_fof_link(&p,fof_link,mytree,myptl);
-					}
-				}
-				nlink += ilink;
-				ilink = 0;
-				for(j=0;j<num;j++){
-					if(ptl[j].included == NEW){
-						linked[nlink+ilink].x = ptl[j].x;
-						linked[nlink+ilink].y = ptl[j].y;
-						linked[nlink+ilink].z = ptl[j].z;
-						linked[nlink+ilink].link02 = ptl[j].link02;
-						ptl[j].included = YES;
-						ptl[j].haloindx = haloindx;
-						ilink ++;
-					}
-				}
-			}
-			haloindx ++;
-		} while(1);
-
-
 
 		int jmax = 0;
 		int maxcount=0;
-		for(j = 0;j<haloindx;j++) {
+		for(j = 0;j<num;j++) {
 			int count = 0;
 			int k;
-			for(i=0;i<num;i++){
-				if(ptl[i].haloindx == j) count ++;
+			for(k=j;k<num;k++){
+				if(ptl[k].haloindx == j) count ++;
 			}
 			if(count > maxcount){
 				jmax = j;
@@ -2221,6 +2146,7 @@ void ompEnabledMemberFoF(SimpleBasicParticleType *bp, int np, int numcore,
 				break;
 			}
 		}
+		DEBUGPRINT("C%d 's # of star members changes from %d to %d\n",i,num,maxcount);
 		for(j=0;j<num;j++){
 			if(ptl[j].haloindx != jmax) {
 				SET_MEMBER_ID(ptl[j].indx,NOT_HALO_MEMBER);
@@ -2228,12 +2154,6 @@ void ompEnabledMemberFoF(SimpleBasicParticleType *bp, int np, int numcore,
                 SET_REMAINING(ptl[j].indx);
 			}
 		}
-		if(ptype = TYPE_STAR) 
-			DEBUGPRINT("C%d 's # of star members changes from %d to %d\n",icore,num,maxcount);
-		else
-			DEBUGPRINT("C%d 's # of AllType members changes from %d to %d\n",icore,num,maxcount);
-		Free(linked);
-		Free(TREE);
 	}
 	Free(ptl);
 }
@@ -2949,14 +2869,16 @@ renumcore :
 			DEBUGPRINT0("after dumping unbound particles to the rest\n");
 			Free(score);
 		}
-		if(np <100000){
+		if(1){
 			if(MINSTELLARMASS>=0) MemberStarFoF(bp,np,numcore,core);
 			MemberFoF(bp,np,numcore,core);
 		}
-		else {
+		/*
+		else{
 			if(MINSTELLARMASS>=0) ompEnabledMemberFoF(bp,np,numcore,core, TYPE_STAR);
 			ompEnabledMemberFoF(bp,np,numcore,core, TYPE_ALL);
 		}
+		*/
 
 		/*
 		for(i=0;i<np;i++){
@@ -2975,9 +2897,9 @@ renumcore :
 			int *tlist,ntarget,jcore,*halonmem;
 			int kk,nbound;
 #ifdef DEBUG
-			DEBUGPRINT0("\n\n\n");
-			DEBUGPRINT("#### BOUNDITER %d",i);
-			DEBUGPRINT0("\n\n\n");
+			printf("\n\n\n");
+			printf("#### BOUNDITER %d",i);
+			printf("\n\n\n");
 #endif
 			Coresorttype *score;
 			score = (Coresorttype*)Malloc(sizeof(Coresorttype)*numcore,PPTR(score));
@@ -2996,7 +2918,7 @@ renumcore :
 #ifdef DEBUG
 			for(j=0;j<numcore;j++){
 				jcore = SCOREID2COREID(j);
-				DEBUGPRINT("C%d has nmem= %d & Rtidal= %g c %g %g %g\n",
+				printf("C%d has nmem= %d & Rtidal= %g c %g %g %g\n",
 						jcore,score[j].nmem,score[j].core->Rtidal,
 						core[jcore].cx,core[jcore].cy,core[jcore].cz);
 			}
@@ -3019,21 +2941,25 @@ renumcore :
 					PDumpKPfromBP(kp,tlist,ntarget,bp);
 				}
 				nbound = SINGLEHALO(ntarget,kp,np,bp,jcore, core+jcore);
-				DEBUGPRINT("C%d has bound particles of np= %d from mp= %d within rtidal= %g c %g %g %g\n",
+#ifdef DEBUG
+				printf("C%d has bound particles of np= %d from mp= %d within rtidal= %g c %g %g %g\n",
 						jcore,nbound, ntarget,core[jcore].Rtidal,
 						core[jcore].cx+Xmin,core[jcore].cy+Ymin,core[jcore].cz+Zmin);
+#endif
 				Free(kp);
 			}
 			Free(tlist); Free(score);
 		}
-		if(np <100000){
+		if(1){
 			if(MINSTELLARMASS>=0) MemberStarFoF(bp,np,numcore,core);
 			MemberFoF(bp,np,numcore,core);
 		}
+		/*
 		else {
 			if(MINSTELLARMASS>=0) ompEnabledMemberFoF(bp,np,numcore,core, TYPE_STAR);
 			ompEnabledMemberFoF(bp,np,numcore,core, TYPE_ALL);
 		}
+		*/
 
 #ifdef DEBUG
 		/*

@@ -23,6 +23,7 @@
 #define SERIALIZED -1
 #define YES 1
 #define NO 0
+#define NEW 2
 #define ENCLOSE 2
 enum where {OUT=0, IN=1, CROSS=2};
 #define divideThisNode(thisNode,nparticles) ((thisNode->nodesize > 0.5*MINCELLWIDTH ? YES:NO) && (nparticles>=MIN_CELL_PARTICLE_NUM ? YES:NO))
@@ -208,6 +209,7 @@ FoFTStruct *FoF_divide_node(FoFTStruct *,FoFTStruct *, int);
 void FoF_Make_Tree(FoFTStruct *, size_t, FoFTPtlStruct *,size_t ,int );
 int new_fof_link(particle*,POSTYPE, FoFTStruct *, FoFTPtlStruct *,particle *);
 int destroy_new_fof_link(particle*,POSTYPE, FoFTStruct *, FoFTPtlStruct *,particle *);
+void destroy_omp_fof_link(particle *,POSTYPE ,FoFTStruct *, FoFTPtlStruct *);
 size_t pnew_fof_link(particle*,POSTYPE, FoFTStruct *, FoFTPtlStruct *,particle *,
 		size_t nhalo, POSTYPE,POSTYPE,POSTYPE);
 TStruct *calThreadFreeNodeStart(size_t , size_t , size_t ,size_t , TStruct *, TStruct *);

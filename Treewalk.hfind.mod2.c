@@ -240,6 +240,105 @@ int ScoopUpParticles(void *optr, particle *linked, int oncount){
 	((FoFTStruct *)ptr)->sibling = ((FoFTStruct *)ptr)->daughter;
 	return ncount;
 }
+int ompFoFGroup(particle *p,POSTYPE fof_link,FoFTStruct *tree,
+        FoFTPtlStruct *ptl,int nptl, particle *linked){
+    int ncount, now;
+    void *ptr,*optr,*nptr;
+    POSTYPE tmpx,tmpy,tmpz;
+    POSTYPE fof_link2,dist2;
+    particle point;
+    ncount = now = 0;
+	point = *p;
+    do {
+        ptr = (void*) tree;
+        while(ptr != NULL){
+            switch(((TYPE*)ptr)->type){
+                case TYPE_TREE:
+                    switch(fof_open(point,ptr,fof_link)){
+                        case NO:
+                            ptr = (void *)(((FoFTStruct*)ptr)->sibling);
+                            break;
+                        default :
+                            ptr = (void *)(((FoFTStruct*)ptr)->daughter);
+                    }
+                    break;
+                default :
+                    if(((FoFTPtlStruct*)ptr)->included == NO) {
+                        tmpx = point.x - ((FoFTPtlStruct*)ptr)->x;
+                        tmpy = point.y - ((FoFTPtlStruct*)ptr)->y;
+                        tmpz = point.z - ((FoFTPtlStruct*)ptr)->z;
+                        dist2 = tmpx*tmpx + tmpy*tmpy + tmpz*tmpz;
+						dist2 = sqrt(dist2);
+                        if(dist2 <= 0.5*(point.link02+((FoFTPtlStruct*)ptr)->link02))
+						{
+                            linked[ncount].x = ((FoFTPtlStruct*)ptr)->x;
+                            linked[ncount].y = ((FoFTPtlStruct*)ptr)->y;
+                            linked[ncount].z = ((FoFTPtlStruct*)ptr)->z;
+                            linked[ncount].link02 = ((FoFTPtlStruct*)ptr)->link02;
+#pragma omp atomic write
+                            ((FoFTPtlStruct*)ptr)->included = YES;
+                            ncount ++;
+                        }
+                    }
+                    ptr = (void*)(((FoFTPtlStruct*)ptr)->sibling);
+            }
+        }
+        point = linked[now];
+        now ++;
+    } while( now <= ncount);
+    return ncount;
+}
+
+typedef struct pthreadStruct{
+	POSTYPE fof_link;
+	FoFTStruct *tree;
+	FoFTPlStruct *ptl;
+	int nptl, id, nid, haloid;
+} pthreadStruct;
+
+int pthreadFoFGroup(void *args){
+	pthreadStruct *p = (pthreadStruct *)args;
+	POSTYPE fof_link = p->fof_link;
+	FoFTSTruct *tree = p->tree;
+	FoFTPtlStruct *ptl = p->ptl;
+	int nptl = p->nptl;
+	int pid = p->id;
+	int nid = p->nid;
+	int haloid = p->haloid;
+	void *ptr;
+	{
+		ptr = (void *) tree;
+		while(ptr){
+			switch(((TYPE*)ptr)->type){
+                case TYPE_TREE:
+                    switch(fof_open(point,ptr,fof_link)){
+						case NO:
+							ptr = (void *)(((FoFTStruct*)ptr)->sibling);
+							break;
+						default:
+							ptr = (void *)(((FoFTStruct*)ptr)->daughter);
+					}
+					break;
+				default:
+					FoFTPtlStruct *tmp = (FoFTPtlStruct*)ptr;
+					int ioff = tmp - ptl;
+					if(ioff%nid == pid && tmp->included == NO) {
+						POSTYPE tmpx = point.x - tmp->x;
+                        POSTYPE tmpy = point.y - tmp->y;
+                        POSTYPE tmpz = point.z - tmp->z;
+                        POSTYPE dist2 = tmpx*tmpx + tmpy*tmpy + tmpz*tmpz;
+                        dist2 = sqrt(dist2);
+                        if(dist2 <= 0.5*(point.link02+tmp->link02)){
+							tmp->included =NEW;
+							tmp->haloindx =haloid;
+						}
+					}
+					ptr = (void*)(tmp->sibling);
+			}
+
+		}
+	}
+}
 
 int new_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree,
         FoFTPtlStruct *ptl,particle *linked){
@@ -292,6 +391,7 @@ int new_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree,
     } while( now <= ncount);
     return ncount;
 }
+
 int destroy_new_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree,
         FoFTPtlStruct *ptl,particle *linked){
     int ncount, now;

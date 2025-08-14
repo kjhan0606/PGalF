@@ -249,6 +249,60 @@ float treeplumpotential(particle *p,float theta2,TStruct *tree,
 	}
 	return potent;
 }
+typedef struct pthreadStruct{
+    POSTYPE fof_link;
+    FoFTStruct *tree;
+    FoFTPtlStruct *ptl;
+	particle point;
+    int nptl, id, nthreads, haloid;
+} pthreadStruct;
+
+int pthreadFoFGroup(void *args){
+    pthreadStruct *p = (pthreadStruct *)args;
+    POSTYPE fof_link = p->fof_link;
+    FoFTStruct *tree = p->tree;
+    FoFTPtlStruct *ptl = p->ptl;
+    int nptl = p->nptl;
+    int pid = p->id;
+    int nthreads = p->nthreads;
+    int haloid = p->haloid;
+    particle point = p->point;
+    {
+        void *ptr = (void *) tree;
+        while(ptr){
+			FoFTPtlStruct *tmp;
+			int ioff;
+            switch(((TYPE*)ptr)->type){
+                case TYPE_TREE:
+                    switch(fof_open(point,ptr,fof_link)){
+                        case NO:
+                            ptr = (void *)(((FoFTStruct*)ptr)->sibling);
+                            break;
+                        default:
+                            ptr = (void *)(((FoFTStruct*)ptr)->daughter);
+                    }
+                    break;
+                default:
+                    tmp = (FoFTPtlStruct*)ptr;
+                    ioff = tmp - ptl;
+                    if(ioff%nthreads == pid && tmp->included == NO) {
+                        POSTYPE tmpx = point.x - tmp->x;
+                        POSTYPE tmpy = point.y - tmp->y;
+                        POSTYPE tmpz = point.z - tmp->z;
+                        POSTYPE dist2 = tmpx*tmpx + tmpy*tmpy + tmpz*tmpz;
+                        dist2 = sqrt(dist2);
+                        if(dist2 <= 0.5*(point.link02+tmp->link02)){
+                            tmp->included =NEW;
+                            tmp->haloindx =haloid;
+                        }
+                    }
+                    ptr = (void*)(tmp->sibling);
+            }
+
+        }
+    }
+}
+
 int new_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree,
         FoFTPtlStruct *ptl,particle *linked){
     int ncount, now;
@@ -295,6 +349,87 @@ int new_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree,
     } while( now <= ncount);
     return ncount;
 }
+int ScoopUpParticles(void *optr, particle *linked, int oncount){
+    int ncount=oncount;
+    void *ptr = optr;
+    void *terminal = (void*)(((FoFTPtlStruct*)ptr)->sibling);
+    while(ptr != terminal){
+		FoFTPtlStruct *tmp;
+        switch(((TYPE*)ptr)->type){
+            case TYPE_TREE:
+                ptr = ((FoFTStruct*)ptr)->daughter;
+                break;
+            default :
+                tmp = (FoFTPtlStruct*)ptr;
+                if(((FoFTPtlStruct*)ptr)->included == NO){
+                    linked[ncount].x = tmp->x;
+                    linked[ncount].y = tmp->y;
+                    linked[ncount].z = tmp->z;
+                    linked[ncount].link02 = tmp->link02;
+                    tmp->included = YES;
+                    ncount ++;
+                }
+                ptr = (void*)(tmp->sibling);
+        }
+    }
+    ((FoFTStruct *)ptr)->sibling = ((FoFTStruct *)ptr)->daughter;
+    return ncount;
+}
+void destroy_omp_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree, FoFTPtlStruct *ptl){
+    void *ptr,*optr,*nptr;
+	POSTYPE fof_link2;
+    particle point;
+    point = *p;
+    {
+        optr = ptr = (void*) tree;
+        while(ptr != NULL){
+            switch(((TYPE*)ptr)->type){
+                case TYPE_TREE:
+					if(((FoFTStruct *)ptr)->sibling ==
+							((FoFTStruct *)ptr)->daughter){
+						EraseFromTree(optr,ptr,((FoFTStruct *)ptr)->sibling);
+						ptr =  ((FoFTStruct *)ptr)->sibling;
+					}
+					else
+					switch(fof_open(point,ptr,fof_link)){ 
+						case NO : 
+							optr = ptr;
+							ptr = (void *)(((FoFTStruct*)ptr)->sibling); 
+							break;
+						default :
+							optr = ptr;
+							ptr = (void *)(((FoFTStruct*)ptr)->daughter); 
+					}
+                    break;
+                default :
+                    if(((FoFTPtlStruct*)ptr)->included == YES) {
+						nptr = ((FoFTPtlStruct *)ptr)->sibling;
+						EraseFromTree(optr,ptr,nptr);
+						ptr = nptr;
+					}
+					else
+					{
+						FoFTPtlStruct *tmp = (FoFTPtlStruct*)ptr;
+                        POSTYPE tmpx = point.x - tmp->x;
+                        POSTYPE tmpy = point.y - tmp->y;
+                        POSTYPE tmpz = point.z - tmp->z;
+                        POSTYPE dist2 = tmpx*tmpx + tmpy*tmpy + tmpz*tmpz;
+                        POSTYPE dist = sqrtf(dist2);
+                        if(dist <= 0.5*(point.link02+tmp->link02))
+                        {
+                            tmp->included = NEW;
+
+							nptr = tmp->sibling;
+							EraseFromTree(optr,ptr,nptr);
+                        }
+						else optr = ptr;
+                    	ptr = (void*)(tmp->sibling);
+                    }
+            }
+        }
+    }
+}
+
 int destroy_new_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree,
         FoFTPtlStruct *ptl,particle *linked){
     int ncount, now;
@@ -316,6 +451,11 @@ int destroy_new_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree,
 					}
 					else
 					switch(fof_open(point,ptr,fof_link)){ 
+						case ENCLOSE:
+							ncount = ScoopUpParticles(ptr,linked,ncount);
+							optr = ptr;
+							ptr = (void *)(((FoFTStruct*)ptr)->sibling); 
+							break;
 						case YES: 
 							optr = ptr;
 							ptr = (void *)(((FoFTStruct*)ptr)->daughter); 
