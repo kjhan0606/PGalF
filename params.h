@@ -123,3 +123,8 @@
 // In the other cases, the omp parallelization goes down the loop.
 #define DEEPSIZE 1024
 //*******************
+//
+//
+// The Number of particles for the OMP-parallized FoF
+#define NOMPFoF 1000000
+//*******************

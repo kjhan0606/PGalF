@@ -1463,6 +1463,7 @@ void lagFindStellarCore(
 								nearindex[k+j] = neighbor[j].indx; 
 							}
 						}
+						icount ++;
 						tmp = tmp->bp;
 					}
 				}

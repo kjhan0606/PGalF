@@ -2949,7 +2949,7 @@ renumcore :
 			DEBUGPRINT0("after dumping unbound particles to the rest\n");
 			Free(score);
 		}
-		if(np <100000){
+		if(np <NOMPFoF){
 			if(MINSTELLARMASS>=0) MemberStarFoF(bp,np,numcore,core);
 			MemberFoF(bp,np,numcore,core);
 		}
@@ -3026,7 +3026,7 @@ renumcore :
 			}
 			Free(tlist); Free(score);
 		}
-		if(np <100000){
+		if(np <NOMPFoF){
 			if(MINSTELLARMASS>=0) MemberStarFoF(bp,np,numcore,core);
 			MemberFoF(bp,np,numcore,core);
 		}
