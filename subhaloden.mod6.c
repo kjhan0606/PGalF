@@ -1556,6 +1556,9 @@ int CheckExternalTE(Kptype *tkp,int tnp,unsigned char *bndflag,
 	cx = icore->cx; cy = icore->cy; cz = icore->cz;
 	cvx = icore->cvx; cvy = icore->cvy; cvz = icore->cvz;
 
+#ifdef _OPENMP
+#pragma omp parallel for private(i,distx,disty, distz,tmpvx,tmpvy,tmpvz)
+#endif
 	for(i=0;i<tnp;i++){
 		distx = (tr[i].x-cx)*r1kineticfact;
 		disty = (tr[i].y-cy)*r1kineticfact;
@@ -2008,6 +2011,9 @@ void GetTidalRCenterCore(Coretype *core,int numcore,
 */
 void UnboundShellP2Rest(int ishell,SimpleBasicParticleType *bp){
 	int i,j,k;
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
 	for(i=0;i<NSHELL2P(ishell);i++) 
 		if(IS_BOUND(SHELL2P(ishell)[i]) == NOT) {
 			SET_MEMBER_ID(SHELL2P(ishell)[i],NOT_HALO_MEMBER);
@@ -2028,6 +2034,7 @@ void UnboundShellP2Rest(int ishell,SimpleBasicParticleType *bp){
 		kp[ii].bp = bp+list[ii];\
 	}\
 }
+
 void PDumpKPfromBP(Kptype *kp, int *list, int nlist,SimpleBasicParticleType *bp){
 	int ii;
 #ifdef _OPENMP
@@ -2152,7 +2159,8 @@ void ompEnabledMemberFoF(SimpleBasicParticleType *bp, int np, int numcore,
 			int recursiveflag = SERIALIZED;
 			FoF_Make_Tree(mytree,mynnode, myptl,mynp,recursiveflag);
 		}
-		DEBUGPRINT0("Making FoF Tree in the parallel mode\n");
+
+		DEBUGPRINT("Making FoF Tree in the parallel mode for %d core\n", icore);
 		do {
 			for(j=0;j<num;j++){
 				if(ptl[j].included == NO){
@@ -2168,7 +2176,9 @@ void ompEnabledMemberFoF(SimpleBasicParticleType *bp, int np, int numcore,
 			}
 			if(j==num) break;
 			while(ilink){
-#pragma omp parallel 
+#ifdef _OPENMP
+#pragma omp parallel  private(j,k)
+#endif
 				{
 					int pid = omp_get_thread_num();
 		            int nthreads = omp_get_num_threads();
@@ -2186,6 +2196,7 @@ void ompEnabledMemberFoF(SimpleBasicParticleType *bp, int np, int numcore,
 						destroy_omp_fof_link(&p,fof_link,mytree,myptl);
 					}
 				}
+
 				nlink += ilink;
 				ilink = 0;
 				for(j=0;j<num;j++){

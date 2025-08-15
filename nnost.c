@@ -1435,7 +1435,7 @@ void lagFindStellarCore(
 					int icount=0;
 					SimpleBasicParticleType *tmp = linkedListGrid[ioff].bp;
 					while(tmp){
-						if(icount%nthreads == threadID) {
+						if(icount%nthreads == threadID) { // allocate the job using id
 							long ibp = tmp-bp;
 							particle pp;
 							pp.x = tmp->x;

@@ -125,6 +125,6 @@
 //*******************
 //
 //
-// The Number of particles for the OMP-parallized FoF
+// The lower Number of particles for the OMP-parallized FoF
 #define NOMPFoF 1000000
 //*******************
