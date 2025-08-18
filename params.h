@@ -126,5 +126,11 @@
 //
 //
 // The lower Number of particles for the OMP-parallized FoF
-#define NOMPFoF 1000000
+#define NOMPFoF 500000
+//*******************
+//
+//
+//
+// the linking length to finalize the membership
+#define FOFLINK4MEMBERSHIP 0.005
 //*******************

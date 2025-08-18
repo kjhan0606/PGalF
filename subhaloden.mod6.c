@@ -1710,9 +1710,7 @@ int CheckSelfTE(Kptype *kp,int np,unsigned char *bndflag, Coretype *icore){
 	Free(penergy); Free(kenergy);
 	Free(mass);
 	Free(vr);Free(r);
-#ifdef DEBUG
-	printf(" Total bound : %d  among %d\n", nbound,np);
-#endif
+	DEBUGPRINT(" Total bound : %d  among %d\n", nbound,np);
 	return nbound;
 }
 int ALONEHALO(Kptype *kp,int np,SimpleBasicParticleType *bp,int haloid){
@@ -1922,9 +1920,7 @@ void AdGetTidalRCenterCore(Coretype *core,int numcore,
 			else {
 				core[sid].Rtidal = 0.;
 			}
-#ifdef DEBUG
-			printf("C%d has tidal radius %g for mass = %g\n",sid,core[sid].Rtidal,member[sid].tmass);
-#endif
+			DEBUGPRINT("C%d has tidal radius %g for mass = %g\n",sid,core[sid].Rtidal,member[sid].tmass);
 		}
 	}
 
@@ -2091,7 +2087,7 @@ void ompEnabledMemberFoF(SimpleBasicParticleType *bp, int np, int numcore,
 	particle *linked,p;
 	int i,j,k;
 	int icore;
-	float fof_link = 0.01;
+	float fof_link = FOFLINK4MEMBERSHIP;
 	ptl = (FoFTPtlStruct*) Malloc(sizeof(FoFTPtlStruct)*np, PPTR(ptl));
 	for(icore=0;icore<numcore;icore++){
 		int num = 0;
@@ -2130,7 +2126,7 @@ void ompEnabledMemberFoF(SimpleBasicParticleType *bp, int np, int numcore,
 			}
 			continue;
 		}
-		size_t nnode = MAX(65*10000,np);
+		size_t nnode = MAX(65*10000,num/2);
 		TREE = (FoFTStruct *)Malloc(sizeof(FoFTStruct)*nnode,PPTR(TREE));
 		linked = (particle *)Malloc(sizeof(particle)*num,PPTR(linked));
 
@@ -2154,37 +2150,48 @@ void ompEnabledMemberFoF(SimpleBasicParticleType *bp, int np, int numcore,
 				myptl[i].included =  NO;
 			}
 			myptl[mynp-1].sibling = NULL;
-			int mynnode = (num+nthreads-1)/nthreads;
-			FoFTStruct *mytree = TREE + mynnode*pid;
+			int nodestep = (nnode+nthreads-1)/nthreads;
+			FoFTStruct *mytree = TREE + nodestep*pid;
 			int recursiveflag = SERIALIZED;
-			FoF_Make_Tree(mytree,mynnode, myptl,mynp,recursiveflag);
+			FoF_Make_Tree(mytree,nodestep, myptl,mynp,recursiveflag);
 		}
 
-		DEBUGPRINT("Making FoF Tree in the parallel mode for %d core\n", icore);
+		DEBUGPRINT("Making FoF Tree in the parallel mode for C%d with np= %d\n", icore, num);
+		int iloop=0;
 		do {
-			for(j=0;j<num;j++){
-				if(ptl[j].included == NO){
-					linked[0].x = ptl[j].x;
-					linked[0].y = ptl[j].y;
-					linked[0].z = ptl[j].z;
-					linked[0].link02 = ptl[j].link02;
-					ptl[j].included = YES;
-					ptl[j].haloindx = haloindx;
+			if(iloop ==0){
+					linked[0].x = bp[core[icore].peak].x;
+					linked[0].y = bp[core[icore].peak].y;
+					linked[0].z = bp[core[icore].peak].z;
+					linked[0].link02 = bp[core[icore].peak].link02;
 					nlink = 0; ilink = 1;
-					break;
+			}
+			else {
+				for(j=0;j<num;j++){
+					if(ptl[j].included == NO){
+						linked[0].x = ptl[j].x;
+						linked[0].y = ptl[j].y;
+						linked[0].z = ptl[j].z;
+						linked[0].link02 = ptl[j].link02;
+						ptl[j].included = YES;
+						ptl[j].haloindx = haloindx;
+						nlink = 0; ilink = 1;
+						break;
+					}
 				}
 			}
+			iloop =1;
 			if(j==num) break;
 			while(ilink){
 #ifdef _OPENMP
-#pragma omp parallel  private(j,k)
+#pragma omp parallel  private(j)
 #endif
 				{
 					int pid = omp_get_thread_num();
 		            int nthreads = omp_get_num_threads();
 					int nstep = (num+nthreads-1)/nthreads;
-					int mynnode = (num+nthreads-1)/nthreads;
-					FoFTStruct *mytree = TREE + mynnode*pid;
+					int nodestep = (nnode+nthreads-1)/nthreads;
+					FoFTStruct *mytree = TREE + nodestep*pid;
 					int istart = nstep * pid;
 					FoFTPtlStruct *myptl = ptl + istart;
 					for(j=nlink;j<nlink+ilink;j++){
@@ -2210,8 +2217,10 @@ void ompEnabledMemberFoF(SimpleBasicParticleType *bp, int np, int numcore,
 						ilink ++;
 					}
 				}
+				DEBUGPRINT("C%d has %d group of ilink= %d nlink= %d for num= %d\n", icore, haloindx, ilink,nlink, num);
 			}
 			haloindx ++;
+			if(nlink> 0.5*num) break;
 		} while(1);
 
 
@@ -2239,7 +2248,7 @@ void ompEnabledMemberFoF(SimpleBasicParticleType *bp, int np, int numcore,
                 SET_REMAINING(ptl[j].indx);
 			}
 		}
-		if(ptype = TYPE_STAR) 
+		if(ptype == TYPE_STAR) 
 			DEBUGPRINT("C%d 's # of star members changes from %d to %d\n",icore,num,maxcount);
 		else
 			DEBUGPRINT("C%d 's # of AllType members changes from %d to %d\n",icore,num,maxcount);
@@ -2257,7 +2266,7 @@ void MemberStarFoF(SimpleBasicParticleType *bp,int np, int numcore, Coretype *co
 	FoFTStruct *TREE;
 	particle *linked,p;
 
-	fof_link = 0.01;
+	fof_link = FOFLINK4MEMBERSHIP;
 	ptl = (FoFTPtlStruct *) Malloc(sizeof(FoFTPtlStruct)*np,PPTR(ptl));
 	linked = (particle *)Malloc(sizeof(particle)*np,PPTR(linked));
 	size_t nnode = MAX(65*10000,np);
@@ -2398,7 +2407,7 @@ void MemberFoF(SimpleBasicParticleType *bp,int np, int numcore, Coretype *core){
 	FoFTStruct *TREE;
 	particle *linked,p;
 
-	fof_link = 0.01;
+	fof_link = FOFLINK4MEMBERSHIP;
 	ptl = (FoFTPtlStruct *) Malloc(sizeof(FoFTPtlStruct)*np,PPTR(ptl));
 	linked = (particle *)Malloc(sizeof(particle)*np,PPTR(linked));
 	size_t nnode = MAX(65*10000,np);

@@ -375,6 +375,27 @@ int ScoopUpParticles(void *optr, particle *linked, int oncount){
     ((FoFTStruct *)ptr)->sibling = ((FoFTStruct *)ptr)->daughter;
     return ncount;
 }
+void ScoopUpParticles2New(void *optr){
+    void *ptr = optr;
+    void *terminal = (void*)(((FoFTPtlStruct*)ptr)->sibling);
+    while(ptr != terminal){
+        FoFTPtlStruct *tmp;
+        switch(((TYPE*)ptr)->type){
+            case TYPE_TREE:
+                ptr = ((FoFTStruct*)ptr)->daughter;
+                break;
+            default :
+                tmp = (FoFTPtlStruct*)ptr;
+                if(((FoFTPtlStruct*)ptr)->included == NO){
+                    tmp->included = NEW;
+                }
+                ptr = (void*)(tmp->sibling);
+        }
+    }
+    ((FoFTStruct *)ptr)->sibling = ((FoFTStruct *)ptr)->daughter;
+    return ;
+}
+
 void destroy_omp_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree, FoFTPtlStruct *ptl){
     void *ptr,*optr,*nptr;
 	POSTYPE fof_link2;
@@ -392,6 +413,11 @@ void destroy_omp_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree, FoFTPtl
 					}
 					else
 					switch(fof_open(point,ptr,fof_link)){ 
+						case ENCLOSE:
+							ScoopUpParticles2New(ptr);
+							optr = ptr;
+							ptr = (void *)(((FoFTStruct*)ptr)->sibling); 
+							break;
 						case NO : 
 							optr = ptr;
 							ptr = (void *)(((FoFTStruct*)ptr)->sibling); 
@@ -402,7 +428,8 @@ void destroy_omp_fof_link(particle *p,POSTYPE fof_link,FoFTStruct *tree, FoFTPtl
 					}
                     break;
                 default :
-                    if(((FoFTPtlStruct*)ptr)->included == YES) {
+                    if(((FoFTPtlStruct*)ptr)->included == YES ||
+							((FoFTPtlStruct*)ptr)->included == NEW ) {
 						nptr = ((FoFTPtlStruct *)ptr)->sibling;
 						EraseFromTree(optr,ptr,nptr);
 						ptr = nptr;
